@@ -4,9 +4,10 @@
 from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from fake_useragent import UserAgent
 from pprint import pprint
 from urllib.parse import urlparse, urlunparse
-from urllib.request import urlopen
+from urllib.request import urlopen, Request
 
 # NOTE: Alphabetical order please
 import appdirs
@@ -26,13 +27,18 @@ def notimplemented():
     print()
     sys.exit(0)
 
-def get_url(url, verbosity=0):
+def get_url(url, verbosity=0, user_agent=None):
     if verbosity > 0:
-        print("Downloading page at", url, "...",)
-    response = urlopen(url)
+        print("Downloading page at", url, "...")
+
+    if user_agent is not None:
+        response = urlopen(Request(url, headers={'User-Agent': user_agent}))
+    else:
+        response = urlopen(url)
+
     html = response.read()
     if verbosity > 0:
-        print(" Done.")
+        print(" * Done.")
 
     return html
 
@@ -159,12 +165,8 @@ def ck_add_cmd(ctx, url, citation_key):
 
     #now = datetime.datetime.now()
     #print("Time:", now.strftime("%Y-%m-%d %H:%M"))
-
-    parsed_url = urlparse(url)
-    index_html = get_url(url, verbosity)
-    if verbosity > 0:
-        print("Parsed URL:", parsed_url)
     
+    # Make sure paper doesn't exist in the library first
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
@@ -176,13 +178,20 @@ def ck_add_cmd(ctx, url, citation_key):
         print("ERROR:", destbibfile, "already exists. Pick a different citation key.")
         sys.exit(1)
 
+    user_agent = UserAgent().random
+    parsed_url = urlparse(url)
+    if verbosity > 0:
+        print("Parsed added paper's URL:", parsed_url)
+    index_html = get_url(url, verbosity, user_agent)
+
     # get domain of website and handle it accordingly
-    # TODO: dl.acm.org
-    # TODO: ieeexplore.ieee.org
-    # TODO: https://epubs.siam.org/doi/abs/10.1137/S0036144502417715
     handlers = dict()
     handlers["link.springer.com"] = springerlink_handler
-    handlers["eprint.iacr.org"] = iacreprint_handler
+    handlers["eprint.iacr.org"]   = iacreprint_handler
+    handlers["dl.acm.org"]        = dlacm_handler
+    # TODO: handlers["ieeexplore.ieee.org"] = ???
+    # TODO: handlers["epubs.siam.org"] = ???
+    # e.g., https://epubs.siam.org/doi/abs/10.1137/S0036144502417715
 
     domain = parsed_url.netloc
     if domain in handlers:
@@ -190,7 +199,7 @@ def ck_add_cmd(ctx, url, citation_key):
         soup = BeautifulSoup(index_html, parser)
 
         handler = handlers[domain]
-        handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, verbosity)
+        handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity)
     else:
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
@@ -198,11 +207,45 @@ def ck_add_cmd(ctx, url, citation_key):
     print()
     print("TODO: Don't forget to tag the paper and change the citation key in the .bib file to", citation_key)
     print()
-    print(" $ ck-sort.sh")
     print(" $ ck open", citation_key + ".bib")
     print()
 
-def iacreprint_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, verbosity):
+def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+    paper_id = parsed_url.query.split('=')[1]
+    if verbosity > 0:
+        print("ACM DL paper ID:", paper_id)
+    # first, we scrape the PDF link
+    elem = soup.find('a', attrs={"name": "FullTextPDF"})
+
+    # then, we download the PDF
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    pdfurl = url_prefix + '/'  + elem.get('href')
+    if verbosity > 0:
+        print("Downloading PDF from:", pdfurl, " with User-Agent:", user_agent)
+
+    req = urlopen(Request(pdfurl, headers={'User-Agent': user_agent}))
+    with open(destpdffile, 'wb') as output:
+        output.write(req.read())
+
+    # second, we scrape the .bib link
+    # We use the <meta name="citation_abstract_html_url" content="http://dl.acm.org/citation.cfm?id=28395.28420"> tag in the <head> 
+    elem = soup.find("head").find("meta", attrs={"name": "citation_abstract_html_url"})
+    newurl = urlparse(elem['content'])
+    ids = newurl.query
+    parent_id = ids.split('=')[1].split('.')[0]
+    if verbosity > 0:
+        print("ACM DL parent ID:", parent_id)
+
+    # then, we download the .bib file from, say, https://dl.acm.org/downformats.cfm?id=28420&parent_id=28395&expformat=bibtex
+    biburl = url_prefix + '/downformats.cfm?id=' + paper_id + '&parent_id=' + parent_id + '&expformat=bibtex'
+    if verbosity > 0:
+        print("Downloading .bib from:", biburl, " with User-Agent:", user_agent)
+
+    req = urlopen(Request(biburl, headers={'User-Agent': user_agent}))
+    with open(destbibfile, 'wb') as output:
+        output.write(req.read())
+
+def iacreprint_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     pdfurl = urlunparse(parsed_url) + ".pdf"
     biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + parsed_url.path[1:]
 
@@ -220,7 +263,7 @@ def iacreprint_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, c
     with open(destbibfile, 'wb') as output:
         output.write(bibtex.encode('utf-8'))
 
-def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, verbosity):
+def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
     paper_id = path[len('chapter/'):]
@@ -250,6 +293,7 @@ def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile,
 @ck.command('rm')
 @click.option(
     '-y', '--yes',
+    is_flag=True,
     default=False,
     help='Do not prompt for confirmation before deleting'
     )
@@ -261,22 +305,32 @@ def ck_rm_cmd(ctx, yes, citation_key):
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
-
-    if not yes:
-        sys.stdout.write("Are you sure you want to delete '" + citation_key + "' from the library? [y/N]: ")
-        sys.stdout.flush()
-        answer = sys.stdin.readline().strip()
-        if answer == "y":
-            for f in [ ck_to_pdf(ck_bib_dir, citation_key), ck_to_bib(ck_bib_dir, citation_key) ]:
-                if os.path.exists(f):
-                    os.remove(f)
-                    print("Deleted", f)
-                else:
-                    print("WARNING:", f, "does not exist, nothing to delete...")
-        else:
-            print("Okay, not deleting anything.")
     
-    # TODO: what to do about tagdir symlinks?
+    files = [ ck_to_pdf(ck_bib_dir, citation_key), ck_to_bib(ck_bib_dir, citation_key) ]
+    something_to_del = False
+    for f in files:
+        if os.path.exists(f):
+            something_to_del = True
+
+    if something_to_del:
+        if not yes:
+            sys.stdout.write("Are you sure you want to delete '" + citation_key + "' from the library? [y/N]: ")
+            sys.stdout.flush()
+            answer = sys.stdin.readline().strip()
+            if answer != "y":
+                print("Okay, not deleting anything.")
+                return
+
+        for f in files:
+            if os.path.exists(f):
+                os.remove(f)
+                print("Deleted", f)
+            else:
+                print("WARNING:", f, "does not exist, nothing to delete...")
+
+        # TODO: what to do about tagdir symlinks?
+    else:
+        print(citation_key, "is not in library. Nothing to delete.")
 
 @ck.command('open')
 @click.argument('pdf_or_bib_file', required=True, type=click.STRING)

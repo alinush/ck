@@ -13,7 +13,7 @@ Features:
 Dependencies
 ------------
 
-    pip install click pyperclip beautifulsoup4 appdirs
+    pip install click pyperclip beautifulsoup4 appdirs fake-useragent
 
 TODOs
 -----
