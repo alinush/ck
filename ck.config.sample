@@ -1,0 +1,4 @@
+[default]
+ck_bib_dir = /home/<your-user-name>/Dropbox/Papers
+ck_tag_dir = /home/<your-user-name>/repos/bibtags
+ck_text_editor = vim
