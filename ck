@@ -21,6 +21,22 @@ import smtplib
 import subprocess
 import sys
 
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_name):
+        rv = click.Group.get_command(self, ctx, cmd_name)
+        if rv is not None:
+            return rv
+
+        matches = [x for x in self.list_commands(ctx)
+                   if x.startswith(cmd_name)]
+
+        if not matches:
+            return None
+        elif len(matches) == 1:
+            return click.Group.get_command(self, ctx, matches[0])
+
+        ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
+
 def notimplemented():
     print()
     print("ERROR: Not implemented yet. Exiting...")
@@ -49,7 +65,7 @@ def file_to_string(path):
     return data
 
 #@click.group(invoke_without_command=True)
-@click.group()
+@click.group(cls=AliasedGroup)
 @click.option(
     '-c', '--config-file',
     default=os.path.join(appdirs.user_config_dir('ck'), 'ck.config'),
@@ -204,10 +220,11 @@ def ck_add_cmd(ctx, url, citation_key):
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
 
+    # TODO: Automatically change the citation key in the .bib file to citation_key
+    ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
+
     print()
-    print("TODO: Don't forget to tag the paper and change the citation key in the .bib file to", citation_key)
-    print()
-    print(" $ ck open", citation_key + ".bib")
+    print("TODO: Don't forget to tag the paper")
     print()
 
 def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
@@ -455,7 +472,7 @@ def ck_search_cmd(ctx, query, case_sensitive):
     if matched is False:
         print("No matches!")
 
-@ck.command('l')
+@ck.command('list')
 @click.argument('query', required=False, type=click.STRING)
 @click.pass_context
 def ck_list_cmd(ctx, query):
