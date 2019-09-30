@@ -69,12 +69,12 @@ def file_to_string(path):
 @click.option(
     '-c', '--config-file',
     default=os.path.join(appdirs.user_config_dir('ck'), 'ck.config'),
-    help='Path to ck config file'
+    help='Path to ck config file.'
     )
 @click.option(
     '-v', '--verbose',
     count=True,
-    help='Displays more detailed information'
+    help='Pass multiple times for extra detail.'
     )
 @click.pass_context
 def ck(ctx, config_file, verbose):
@@ -120,7 +120,7 @@ def ck_to_bib(ck_bib_dir, ck):
 @ck.command('check')
 @click.pass_context
 def ck_check_cmd(ctx):
-    """Checks the bibdir and tagdir for integrity"""
+    """Checks the bibdir and tagdir for integrity."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -170,7 +170,7 @@ def ck_check_cmd(ctx):
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.pass_context
 def ck_add_cmd(ctx, url, citation_key):
-    """Adds the specified paper to the library (.pdf and .bib file)"""
+    """Adds the paper to the library (.pdf and .bib file)."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -317,7 +317,7 @@ def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile,
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.pass_context
 def ck_rm_cmd(ctx, yes, citation_key):
-    """Removes the specified paper from the library (.pdf and .bib file)"""
+    """Removes the paper from the library (.pdf and .bib file)."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -353,7 +353,7 @@ def ck_rm_cmd(ctx, yes, citation_key):
 @click.argument('pdf_or_bib_file', required=True, type=click.STRING)
 @click.pass_context
 def ck_open_cmd(ctx, pdf_or_bib_file):
-    """Opens the .pdf or .bib file"""
+    """Opens the .pdf or .bib file."""
 
     ctx.ensure_object(dict)
     verbosity      = ctx.obj['verbosity']
@@ -392,7 +392,7 @@ def ck_open_cmd(ctx, pdf_or_bib_file):
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.pass_context
 def ck_bib_cmd(ctx, citation_key):
-    """Prints the specified paper's BibTeX and copies it to the clipboard"""
+    """Prints the paper's BibTeX and copies it to the clipboard."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -441,7 +441,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
     )
 @click.pass_context
 def ck_search_cmd(ctx, query, case_sensitive):
-    """Searches all .bib files for the specified text"""
+    """Searches all .bib files for the specified text."""
 
     ctx.ensure_object(dict)
     verbosity   = ctx.obj['verbosity']
@@ -476,7 +476,7 @@ def ck_search_cmd(ctx, query, case_sensitive):
 @click.argument('query', required=False, type=click.STRING)
 @click.pass_context
 def ck_list_cmd(ctx, query):
-    """Lists papers in the library that match the query"""
+    """Lists papers in the library that match the query."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
