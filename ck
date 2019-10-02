@@ -194,11 +194,9 @@ def ck_add_cmd(ctx, url, citation_key):
         print("ERROR:", destbibfile, "already exists. Pick a different citation key.")
         sys.exit(1)
 
-    user_agent = UserAgent().random
     parsed_url = urlparse(url)
     if verbosity > 0:
         print("Parsed added paper's URL:", parsed_url)
-    index_html = get_url(url, verbosity, user_agent)
 
     # get domain of website and handle it accordingly
     handlers = dict()
@@ -211,6 +209,8 @@ def ck_add_cmd(ctx, url, citation_key):
 
     domain = parsed_url.netloc
     if domain in handlers:
+        user_agent = UserAgent().random
+        index_html = get_url(url, verbosity, user_agent)
         parser = "lxml"
         soup = BeautifulSoup(index_html, parser)
 
