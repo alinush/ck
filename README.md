@@ -18,6 +18,7 @@ Dependencies
 TODOs
 -----
 
+ - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
  - figure out how to have a setup.py that installs this thing
  - how to list files sorted by add date? where to keep a 'date-added' field?
  - add aliases for subcommands; see [here](http://click.palletsprojects.com/en/5.x/advanced/)
