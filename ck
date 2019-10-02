@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from fake_useragent import UserAgent
+from http.cookiejar import CookieJar
 from pprint import pprint
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen, Request
@@ -20,6 +21,7 @@ import pyperclip
 import smtplib
 import subprocess
 import sys
+import urllib
 
 class AliasedGroup(click.Group):
     def get_command(self, ctx, cmd_name):
@@ -45,7 +47,7 @@ def notimplemented():
 
 def get_url(url, verbosity=0, user_agent=None):
     if verbosity > 0:
-        print("Downloading page at", url, "...")
+        print("Downloading URL:", url)
 
     if user_agent is not None:
         response = urlopen(Request(url, headers={'User-Agent': user_agent}))
@@ -196,16 +198,16 @@ def ck_add_cmd(ctx, url, citation_key):
 
     parsed_url = urlparse(url)
     if verbosity > 0:
-        print("Parsed added paper's URL:", parsed_url)
+        print("Paper's URL:", parsed_url)
 
     # get domain of website and handle it accordingly
     handlers = dict()
     handlers["link.springer.com"] = springerlink_handler
     handlers["eprint.iacr.org"]   = iacreprint_handler
     handlers["dl.acm.org"]        = dlacm_handler
-    # TODO: handlers["ieeexplore.ieee.org"] = ???
-    # TODO: handlers["epubs.siam.org"] = ???
     # e.g., https://epubs.siam.org/doi/abs/10.1137/S0036144502417715
+    handlers["epubs.siam.org"] = epubssiam_handler
+    # TODO: handlers["ieeexplore.ieee.org"] = ???
 
     domain = parsed_url.netloc
     if domain in handlers:
@@ -227,6 +229,37 @@ def ck_add_cmd(ctx, url, citation_key):
     print("TODO: Don't forget to tag the paper")
     print()
 
+def download_pdf(user_agent, pdfurl, destpdffile, verbosity=0):
+    download_pdf_and_bib(user_agent, pdfurl, destpdffile, None, None)
+
+def download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity=0):
+    cj = CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    if pdfurl is not None:
+        if verbosity > 0:
+            print("Downloading PDF from:", pdfurl, "with User-Agent:", user_agent)
+
+        req = opener.open(Request(pdfurl, headers={'User-Agent': user_agent}))
+        if req.getcode() != 200:
+            print("ERROR: Got" + req.getcode() + " response code")
+            return
+
+        with open(destpdffile, 'wb') as output:
+            output.write(req.read())
+
+    if biburl is not None:
+        if verbosity > 0:
+            print("Downloading .bib from:", biburl, "with User-Agent:", user_agent)
+
+        req = opener.open(Request(biburl, headers={'User-Agent': user_agent}))
+        if req.getcode() != 200:
+            print("ERROR: Got" + req.getcode() + " response code")
+            return
+
+        with open(destbibfile, 'wb') as output:
+            output.write(req.read())
+
 def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
     if verbosity > 0:
@@ -237,12 +270,6 @@ def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citati
     # then, we download the PDF
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     pdfurl = url_prefix + '/'  + elem.get('href')
-    if verbosity > 0:
-        print("Downloading PDF from:", pdfurl, " with User-Agent:", user_agent)
-
-    req = urlopen(Request(pdfurl, headers={'User-Agent': user_agent}))
-    with open(destpdffile, 'wb') as output:
-        output.write(req.read())
 
     # second, we scrape the .bib link
     # We use the <meta name="citation_abstract_html_url" content="http://dl.acm.org/citation.cfm?id=28395.28420"> tag in the <head> 
@@ -255,23 +282,14 @@ def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citati
 
     # then, we download the .bib file from, say, https://dl.acm.org/downformats.cfm?id=28420&parent_id=28395&expformat=bibtex
     biburl = url_prefix + '/downformats.cfm?id=' + paper_id + '&parent_id=' + parent_id + '&expformat=bibtex'
-    if verbosity > 0:
-        print("Downloading .bib from:", biburl, " with User-Agent:", user_agent)
 
-    req = urlopen(Request(biburl, headers={'User-Agent': user_agent}))
-    with open(destbibfile, 'wb') as output:
-        output.write(req.read())
+    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
 def iacreprint_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     pdfurl = urlunparse(parsed_url) + ".pdf"
+    download_pdf(user_agent, pdfurl, destpdffile, verbosity)
+
     biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + parsed_url.path[1:]
-
-    print("Downloading PDF from", pdfurl, "to", destpdffile)
-
-    req = urlopen(pdfurl)
-    with open(destpdffile, 'wb') as output:
-      output.write(req.read())
-    
     print("Downloading BibTeX from", biburl)
     html = get_url(biburl, verbosity)
     bibsoup = BeautifulSoup(html, parser)
@@ -296,27 +314,38 @@ def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile,
     # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
     biburl = 'https://citation-needed.springer.com/v2/references' + paper_id + '?format=bibtex&flavour=citation'
 
-    print("Downloading PDF from", pdfurl, "to", destpdffile)
+    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-    req = urlopen(pdfurl)
-    with open(destpdffile, 'wb') as output:
-        output.write(req.read())
+def epubssiam_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    path = parsed_url.path
+
+    splitpath = path.split('/');
+    doi_start = splitpath[2]
+    doi_end   = splitpath[3]
+    doi       = doi_start + '/' + doi_end
+    doi_alt   = doi_start + '%2F' + doi_end
     
-    print("Downloading .bib from", biburl, "to", destbibfile)
-    req = urlopen(biburl)
-    with open(destbibfile, 'wb') as output:
-        output.write(req.read())
+    if verbosity > 0:
+        print("Extracted DOI:", doi)
+
+    # e.g., URL to download BibTeX for doi:10.1137/S0097539790187084
+    # https://epubs.siam.org/action/downloadCitation?doi=10.1137%2FS0097539790187084&format=bibtex&include=cit
+    pdfurl = url_prefix + '/doi/pdf/' + doi
+    biburl = url_prefix + '/action/downloadCitation?doi=' + doi_alt + '&format=bibtex&include=cit'
+
+    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
 @ck.command('rm')
 @click.option(
-    '-y', '--yes',
+    '-f', '--force',
     is_flag=True,
     default=False,
     help='Do not prompt for confirmation before deleting'
     )
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.pass_context
-def ck_rm_cmd(ctx, yes, citation_key):
+def ck_rm_cmd(ctx, force, citation_key):
     """Removes the paper from the library (.pdf and .bib file)."""
 
     ctx.ensure_object(dict)
@@ -330,7 +359,7 @@ def ck_rm_cmd(ctx, yes, citation_key):
             something_to_del = True
 
     if something_to_del:
-        if not yes:
+        if not force:
             sys.stdout.write("Are you sure you want to delete '" + citation_key + "' from the library? [y/N]: ")
             sys.stdout.flush()
             answer = sys.stdin.readline().strip()
