@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Sources:
+# https://iridakos.com/tutorials/2018/03/01/bash-programmable-completion-tutorial.html
+
+_citation_key_ck_completion() {
+    # this stops autocompletion from adding the same word multiple times after it was added the first time
+    if [ "${#COMP_WORDS[@]}" != "2" ]; then
+        return
+    fi
+
+    local line=`ck | grep -n "^Commands:$" | cut -f 1 -d':'`
+    local ck_subcommands=`ck | tail -n +$(($line+1)) | cut -f 3 -d' '`
+
+    COMPREPLY=(`compgen -W "$(echo $ck_subcommands)" "${COMP_WORDS[1]}"`)
+}
+
+complete -F _citation_key_ck_completion ck
