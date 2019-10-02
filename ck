@@ -473,10 +473,10 @@ def ck_search_cmd(ctx, query, case_sensitive):
         print("No matches!")
 
 @ck.command('list')
-@click.argument('query', required=False, type=click.STRING)
+#@click.argument('query', required=False, type=click.STRING)
 @click.pass_context
-def ck_list_cmd(ctx, query):
-    """Lists papers in the library that match the query."""
+def ck_list_cmd(ctx):
+    """Lists all citation keys in the library"""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
