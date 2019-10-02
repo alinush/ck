@@ -223,14 +223,16 @@ def ck_add_cmd(ctx, url, citation_key):
         sys.exit(1)
 
     # TODO: Automatically change the citation key in the .bib file to citation_key
-    ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
+    if verbosity == 0:
+        # only doing this when not debugging (i.e., verbosity is 0)
+        ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
 
     print()
     print("TODO: Don't forget to tag the paper")
     print()
 
 def download_pdf(user_agent, pdfurl, destpdffile, verbosity=0):
-    download_pdf_and_bib(user_agent, pdfurl, destpdffile, None, None)
+    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, None, None)
 
 def download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity=0):
     cj = CookieJar()
