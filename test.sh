@@ -20,6 +20,7 @@ https://link.springer.com/chapter/10.1007/11818175_27
 https://dl.acm.org/citation.cfm?id=62225
 https://epubs.siam.org/doi/10.1137/S0097539790187084
 https://eprint.iacr.org/2018/721
+https://ieeexplore.ieee.org/document/7958589
 "
 
 
@@ -28,6 +29,7 @@ pdf_hashes=(
 "70405b39ef003eb4871ec218330b33d0d70e6081d8afe13b5f93ba9eedc34470"
 "dynamic_pdf"
 "34c933f87d74013981ecbee99253226c2c22c1f1f06de01b5ff6b567e0424c24"
+"d4a2a9c5eedd0837d358c4fc3060e10c7ceb1061f52f8c89e8bb03a447050e8c"
 )
 
 bib_hashes=(
@@ -35,6 +37,7 @@ bib_hashes=(
 "d4d3e51b2817a6acd0506fde765c92afeb830ca7f06d414f7f99aad893b3e9f6"
 "b6d380ba2eb67b8f4c98f48f2a59f7753cd41c8b51a4ab63fcfcc51fc4ec0501"
 "23df56e2a5349ee51baa05d0915fa6e02f2f6474863ccead0dd818ae3aeab2ba"
+"31592cce2909cd2cbbd66576ae61892eb705cb70c90cd2a7f7d14a032bb73995"
 )
 
 sha256hash()

@@ -8,7 +8,7 @@ from fake_useragent import UserAgent
 from http.cookiejar import CookieJar
 from pprint import pprint
 from urllib.parse import urlparse, urlunparse
-from urllib.request import urlopen, Request
+from urllib.request import Request
 
 # NOTE: Alphabetical order please
 import appdirs
@@ -21,6 +21,7 @@ import pyperclip
 import smtplib
 import subprocess
 import sys
+import tempfile
 import urllib
 
 class AliasedGroup(click.Group):
@@ -45,16 +46,25 @@ def notimplemented():
     print()
     sys.exit(0)
 
-def get_url(url, verbosity=0, user_agent=None):
+def get_url(opener, url, verbosity, user_agent):
     if verbosity > 0:
         print("Downloading URL:", url)
 
     if user_agent is not None:
-        response = urlopen(Request(url, headers={'User-Agent': user_agent}))
+        response = opener.open(Request(url, headers={'User-Agent': user_agent}))
     else:
-        response = urlopen(url)
+        response = opener.open(url)
+
+    if response.getcode() != 200:
+        print("ERROR: Got" + response.getcode() + " response code")
+        raise
 
     html = response.read()
+
+    if verbosity > 2:
+        print("Downloaded:")
+        print(html)
+
     if verbosity > 0:
         print(" * Done.")
 
@@ -65,6 +75,10 @@ def file_to_string(path):
         data = f.read()
     
     return data
+
+def string_to_file(string, path):
+    with open(path, 'w') as output:
+        output.write(string)
 
 #@click.group(invoke_without_command=True)
 @click.group(cls=AliasedGroup)
@@ -207,17 +221,20 @@ def ck_add_cmd(ctx, url, citation_key):
     handlers["dl.acm.org"]        = dlacm_handler
     # e.g., https://epubs.siam.org/doi/abs/10.1137/S0036144502417715
     handlers["epubs.siam.org"] = epubssiam_handler
-    # TODO: handlers["ieeexplore.ieee.org"] = ???
+    handlers["ieeexplore.ieee.org"] = ieeexplore_handler
 
     domain = parsed_url.netloc
     if domain in handlers:
+        cj = CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
         user_agent = UserAgent().random
-        index_html = get_url(url, verbosity, user_agent)
+        index_html = get_url(opener, url, verbosity, user_agent)
         parser = "lxml"
         soup = BeautifulSoup(index_html, parser)
 
         handler = handlers[domain]
-        handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity)
+        handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity)
     else:
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
@@ -231,38 +248,23 @@ def ck_add_cmd(ctx, url, citation_key):
     print("TODO: Don't forget to tag the paper")
     print()
 
-def download_pdf(user_agent, pdfurl, destpdffile, verbosity=0):
-    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, None, None)
+def download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity):
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, None, None, verbosity)
 
-def download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity=0):
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-
+def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity):
     if pdfurl is not None:
-        if verbosity > 0:
-            print("Downloading PDF from:", pdfurl, "with User-Agent:", user_agent)
-
-        req = opener.open(Request(pdfurl, headers={'User-Agent': user_agent}))
-        if req.getcode() != 200:
-            print("ERROR: Got" + req.getcode() + " response code")
-            return
+        data = get_url(opener, pdfurl, verbosity, user_agent)
 
         with open(destpdffile, 'wb') as output:
-            output.write(req.read())
+            output.write(data)
 
     if biburl is not None:
-        if verbosity > 0:
-            print("Downloading .bib from:", biburl, "with User-Agent:", user_agent)
-
-        req = opener.open(Request(biburl, headers={'User-Agent': user_agent}))
-        if req.getcode() != 200:
-            print("ERROR: Got" + req.getcode() + " response code")
-            return
+        data = get_url(opener, biburl, verbosity, user_agent)
 
         with open(destbibfile, 'wb') as output:
-            output.write(req.read())
+            output.write(data)
 
-def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
     if verbosity > 0:
         print("ACM DL paper ID:", paper_id)
@@ -285,22 +287,22 @@ def dlacm_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citati
     # then, we download the .bib file from, say, https://dl.acm.org/downformats.cfm?id=28420&parent_id=28395&expformat=bibtex
     biburl = url_prefix + '/downformats.cfm?id=' + paper_id + '&parent_id=' + parent_id + '&expformat=bibtex'
 
-    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-def iacreprint_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     pdfurl = urlunparse(parsed_url) + ".pdf"
-    download_pdf(user_agent, pdfurl, destpdffile, verbosity)
+    download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
 
     biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + parsed_url.path[1:]
     print("Downloading BibTeX from", biburl)
-    html = get_url(biburl, verbosity)
+    html = get_url(opener, biburl, verbosity, user_agent)
     bibsoup = BeautifulSoup(html, parser)
     bibtex = bibsoup.find('pre').text.strip()
 
     with open(destbibfile, 'wb') as output:
         output.write(bibtex.encode('utf-8'))
 
-def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
     paper_id = path[len('chapter/'):]
@@ -316,13 +318,13 @@ def springerlink_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile,
     # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
     biburl = 'https://citation-needed.springer.com/v2/references' + paper_id + '?format=bibtex&flavour=citation'
 
-    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-def epubssiam_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
 
-    splitpath = path.split('/');
+    splitpath = path.split('/')
     doi_start = splitpath[2]
     doi_end   = splitpath[3]
     doi       = doi_start + '/' + doi_end
@@ -336,7 +338,42 @@ def epubssiam_handler(soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, ci
     pdfurl = url_prefix + '/doi/pdf/' + doi
     biburl = url_prefix + '/action/downloadCitation?doi=' + doi_alt + '&format=bibtex&include=cit'
 
-    download_pdf_andor_bib(user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+
+def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    path = parsed_url.path
+
+    splitpath = path.split('/')
+    arnum = splitpath[2]
+
+    # To get the PDF link, we have to download an HTML page which puts the PDF in an iframe. Doh.
+    # e.g., https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7958589
+    # (How do you come up with this design?)
+    pdf_iframe_url = url_prefix + '/stamp/stamp.jsp?tp=&arnumber=' + str(arnum)
+    html = get_url(opener, pdf_iframe_url, verbosity, user_agent)
+    pdfsoup = BeautifulSoup(html, parser)
+    elem = pdfsoup.find('iframe')
+
+    # e.g., PDF URL
+    # https://ieeexplore.ieee.org/ielx7/7957740/7958557/07958589.pdf
+    # e.g., BibTeX URL
+    # https://ieeexplore.ieee.org/xpl/downloadCitations?recordIds=7958589&download-format=download-bibtex&citations-format=citation-only
+    if verbosity > 1:
+        print("Parsed iframe tag:", elem)
+
+    pdfurl = elem['src']
+    biburl = url_prefix + '/xpl/downloadCitations?recordIds=' + arnum + '&download-format=download-bibtex&citations-format=citation-abstract'
+
+    tmpbibf = tempfile.NamedTemporaryFile(delete=True)
+    tmpbibfile = tmpbibf.name
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, tmpbibfile, verbosity)
+
+    # clean the .bib file, which IEEExplore kindly serves with <br>'s in it
+    bibtex = file_to_string(tmpbibfile)
+    tmpbibf.close()
+    bibtex = bibtex.replace('<br>', '')
+    string_to_file(bibtex, destbibfile)
 
 @ck.command('rm')
 @click.option(
@@ -414,7 +451,8 @@ def ck_open_cmd(ctx, pdf_or_bib_file):
         # TODO: check for failure in completed.returncode
     elif extension.lower() == '.bib':
         os.system(ck_text_editor + " " + fullpath);
-        print(file_to_string(fullpath).strip())
+        if os.path.exists(fullpath):
+            print(file_to_string(fullpath).strip())
     else:
         print("ERROR:", extension.lower(), "extension is not supported")
         sys.exit(1)
