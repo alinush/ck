@@ -600,6 +600,31 @@ def ck_list_cmd(ctx):
     # TODO: could have AND / OR operators for hashtags
     # TODO: filter by year/author/title/conference
 
+@ck.command('genbib')
+@click.argument('output-file', type=click.File('w'))
+@click.pass_context
+def ck_genbib(ctx, output_file):
+    """Generates a master bibliography file of all papers."""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+
+    num = 0
+    for relpath in os.listdir(ck_bib_dir):
+        filepath = os.path.join(ck_bib_dir, relpath)
+        filename, extension = os.path.splitext(relpath)
+
+        if extension.lower() == ".bib":
+            num += 1
+            bibtex = file_to_string(filepath)
+            output_file.write(bibtex + '\n')
+
+    if num == 0:
+        print("No .bib files in library.")
+    else:
+        print("Wrote", num, ".bib files to", output_file.name)
+
 if __name__ == '__main__':
     ck(obj={})
 
