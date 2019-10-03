@@ -15,6 +15,17 @@ Dependencies
 
     pip install click pyperclip beautifulsoup4 appdirs fake-useragent
 
+Other useful, related repositories
+----------------------------------
+
+ - [zotero translators](https://github.com/zotero/translators/blob/master/IEEE%20Xplore.js)
+ - [BibFromXplore.sh](https://github.com/rval735/BNN-PhD/blob/9a8941bbdf2a9c0dbda4420b522ca306da216e0c/Scripts/BibFromXplore.sh)
+ - [AnyBibTeX](https://github.com/Livich/AnyBibTeX)
+ - [paperbot](https://github.com/kanzure/paperbot)
+ - [iacr-dl](https://github.com/znewman01/iacr-dl)
+
+Just search GitHub for more: ["ieeexplore downloadcitations"](https://github.com/search?q=ieeexplore+downloadcitations&type=Code)
+
 TODOs
 -----
 

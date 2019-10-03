@@ -375,6 +375,17 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     bibtex = bibtex.replace('<br>', '')
     string_to_file(bibtex, destbibfile)
 
+@ck.command('tag')
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.argument('tag', required=False, type=click.STRING)
+@click.pass_context
+def ck_tag_cmd(ctx, citation_key, tag):
+    """Tags the specified paper."""
+
+    # TODO: If no args, detects untagged papers and asks the user to tag them.
+
+    pass
+
 @ck.command('rm')
 @click.option(
     '-f', '--force',
