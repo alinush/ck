@@ -223,15 +223,22 @@ def ck_add_cmd(ctx, url, citation_key):
     handlers["epubs.siam.org"] = epubssiam_handler
     handlers["ieeexplore.ieee.org"] = ieeexplore_handler
 
+    no_index_html = dict()
+    no_index_html["eprint.iacr.org"] = True
+
     domain = parsed_url.netloc
     if domain in handlers:
         cj = CookieJar()
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 
         user_agent = UserAgent().random
-        index_html = get_url(opener, url, verbosity, user_agent)
         parser = "lxml"
-        soup = BeautifulSoup(index_html, parser)
+        soup = None
+        index_html = None
+        # e.g., we never download the index page for IACR ePrint
+        if domain not in no_index_html or no_index_html[domain] == False:
+            index_html = get_url(opener, url, verbosity, user_agent)
+            soup = BeautifulSoup(index_html, parser)
 
         handler = handlers[domain]
         handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity)
@@ -290,10 +297,19 @@ def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
 def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    pdfurl = urlunparse(parsed_url) + ".pdf"
+    # let's accept links in both formats
+    #  - https://eprint.iacr.org/2015/525.pdf
+    #  - https://eprint.iacr.org/2015/525
+    path = parsed_url.path[1:]
+    if path.endswith(".pdf"):
+        path = path[:-4]
+        pdfurl = urlunparse(parsed_url)
+    else:
+        pdfurl = urlunparse(parsed_url) + ".pdf"
+
     download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
 
-    biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + parsed_url.path[1:]
+    biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + path
     print("Downloading BibTeX from", biburl)
     html = get_url(opener, biburl, verbosity, user_agent)
     bibsoup = BeautifulSoup(html, parser)
