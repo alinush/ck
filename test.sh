@@ -58,7 +58,7 @@ for url in $urls; do
         pdf_hash_actual=${pdf_hashes[$i]}
         bib_hash_actual=${bib_hashes[$i]}
 
-        $scriptdir/ck -c $ck_config -v add "$url" $name
+        $scriptdir/ck -c $ck_config -v add --just-add "$url" $name
         rc=$?
         i=$(($i+1))
 

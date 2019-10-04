@@ -195,8 +195,14 @@ def ck_check_cmd(ctx):
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
 @click.argument('citation_key', required=True, type=click.STRING)
+@click.option(
+    '-n', '--just-add',
+    is_flag=True,
+    default=False,
+    help='Just adds the paper; does not tag it or open its .bib file.'
+    )
 @click.pass_context
-def ck_add_cmd(ctx, url, citation_key):
+def ck_add_cmd(ctx, url, citation_key, just_add):
     """Adds the paper to the library (.pdf and .bib file)."""
 
     ctx.ensure_object(dict)
@@ -257,14 +263,11 @@ def ck_add_cmd(ctx, url, citation_key):
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
 
-    # TODO: Automatically change the citation key in the .bib file to citation_key
-    if verbosity == 0:
-        # only doing this when not debugging (i.e., verbosity is 0)
+    if not just_add:
+        # prompt user to tag paper
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key)
+        # TODO: Automatically change the citation key in the .bib file to citation_key
         ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
-
-    print()
-    print("TODO: Don't forget to tag the paper")
-    print()
 
 def download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity):
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, None, None, verbosity)
