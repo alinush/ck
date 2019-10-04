@@ -706,19 +706,28 @@ def ck_list_cmd(ctx):
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
 
+    ck_set = set()
     for relpath in os.listdir(ck_bib_dir):
         filepath = os.path.join(ck_bib_dir, relpath)
         filename, extension = os.path.splitext(relpath)
 
-        if extension.lower() == ".pdf":
-            print(filename)
-            if verbosity > 0:
-                bibfile = os.path.join(ck_bib_dir, filename + ".bib")
-                if os.path.exists(bibfile) is False:
-                    print("WARNING: No .bib file for '%s' paper" % (filename))
-                else:
-                    print(file_to_string(bibfile))
-                print
+        if extension.lower() == ".pdf" or extension.lower() == ".bib":
+            ck_set.add(filename)
+
+    cks = sorted(ck_set)
+    for ck in cks:
+        print(ck)
+
+        if verbosity > 0:
+            bibfile = os.path.join(ck_bib_dir, filename + ".bib")
+            if os.path.exists(bibfile) is False:
+                print("WARNING: No .bib file for '%s' paper" % (filename))
+            else:
+                print(file_to_string(bibfile))
+            print
+
+    print()
+    print(str(len(cks)) + " PDFs/.bib's in the library")
 
     # TODO: query could be a space-separated list of tokens
     # a token can be a hashtag (e.g., #dkg-dlog) or a sorting token (e.g., 'year')
