@@ -499,6 +499,7 @@ def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
     print("Tagging", citation_key, "with tag", tag, "...")
 
     pdf_tag_dir = os.path.join(ck_tag_dir, tag)
+    # TODO: if dir doesn't exist, prompt user to create it, unless --yes option is passed
     os.makedirs(pdf_tag_dir, exist_ok=True)
 
     pdfname = citation_key + ".pdf"
