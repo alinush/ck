@@ -456,6 +456,25 @@ def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
 
     return untagged
 
+def get_tags(ck_tag_dir):
+    tags = []
+    for tag in os.listdir(ck_tag_dir):
+        tags.append(tag)
+    return sorted(tags)
+
+def print_tags(ck_tag_dir):
+    sys.stdout.write("Tags: ")
+    print(get_tags(ck_tag_dir))
+    print()
+
+def prompt_for_tags(prompt):
+    tags_str = prompt_user(prompt)
+    tags = tags_str.split(',')
+
+    tags = [t.strip() for t in tags]
+    tags = filter(lambda t: len(t) > 0, tags)
+    return tags
+
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tag', required=False, type=click.STRING)
@@ -489,14 +508,20 @@ def ck_tag_cmd(ctx, citation_key, tag):
             print("No untagged papers.")
 
         for (relpath, filepath, citation_key) in untagged_pdfs:
-            tag = prompt_user("Please enter tag for '" + citation_key + "': ")
-            tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+            print_tags(ck_tag_dir)
+
+            tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
+            for tag in tags:
+                tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
     else:
         if tag is None:
             # get tag from command line
-            tag = prompt_user("Please enter tag: ")
+            print_tags(ck_tag_dir)
 
-        tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+            tags = prompt_for_tags("Please enter tag(s): ")
+
+            for tag in tags:
+                tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
 
 def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
     print("Tagging", citation_key, "with tag", tag, "...")
