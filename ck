@@ -40,6 +40,17 @@ class AliasedGroup(click.Group):
 
         ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
 
+def prompt_user(prompt):
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    answer = sys.stdin.readline().strip()
+    return answer
+
+def confirm_user(prompt):
+    prompt += " [y/N]: "
+    ans = prompt_user(prompt).strip()
+    return ans.lower() == "y" or ans.lower() == "yes"
+
 def notimplemented():
     print()
     print("ERROR: Not implemented yet. Exiting...")
@@ -391,6 +402,57 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     bibtex = bibtex.replace('<br>', '')
     string_to_file(bibtex, destbibfile)
 
+@ck.command('config')
+@click.pass_context
+def ck_config_cmd(ctx):
+    """Lets you edit the config file and prints it at the end."""
+
+    ctx.ensure_object(dict)
+    ck_text_editor = ctx.obj['ck_text_editor'];
+
+    fullpath = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
+    os.system(ck_text_editor + " \"" + fullpath + "\"");
+    if os.path.exists(fullpath):
+        print(file_to_string(fullpath).strip())
+
+def find_tagged_pdfs(dirpath, verbosity):
+    tagged_pdfs = set()
+    for relpath in os.listdir(dirpath):
+        fullpath = os.path.join(dirpath, relpath)
+        citation_key, extension = os.path.splitext(relpath)
+        #filename = os.path.basename(filepath)
+
+        if os.path.isdir(fullpath):
+            tagged_pdfs.update(find_tagged_pdfs(fullpath, verbosity))
+        elif os.path.islink(fullpath):
+            if verbosity > 1:
+                print("Symlink:", fullpath)
+            if extension.lower() == ".pdf":
+                realpath = os.readlink(fullpath)
+                if verbosity > 1:
+                    print(' \->', realpath)
+                tagged_pdfs.add(realpath)
+
+    return tagged_pdfs
+
+def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
+    tagged_pdfs = find_tagged_pdfs(ck_tag_dir, verbosity)
+    untagged = set()
+
+    if verbosity > 1:
+        print("Tagged papers:", tagged_pdfs)
+
+    for relpath in os.listdir(ck_bib_dir):
+        filepath = os.path.join(ck_bib_dir, relpath)
+        citation_key, extension = os.path.splitext(relpath)
+        #filename = os.path.basename(filepath)
+
+        if extension.lower() == ".pdf":
+            if filepath not in tagged_pdfs:
+                untagged.add((relpath, filepath, citation_key))
+
+    return untagged
+
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tag', required=False, type=click.STRING)
@@ -398,9 +460,49 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
 def ck_tag_cmd(ctx, citation_key, tag):
     """Tags the specified paper."""
 
-    # TODO: If no args, detects untagged papers and asks the user to tag them.
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
 
-    pass
+    if citation_key is None:
+        # If no paper was specified, detects untagged papers and asks the user to tag them.
+        assert tag is None
+
+        untagged_pdfs = find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity)
+        if len(untagged_pdfs) > 0:
+            sys.stdout.write("Untagged papers: ")
+            first_iter = True
+            for (relpath, filepath, citation_key) in untagged_pdfs:
+                if not first_iter:
+                    sys.stdout.write(", ")
+                sys.stdout.write(citation_key)
+                sys.stdout.flush()
+
+                first_iter = False
+            sys.stdout.write("\b\b")
+            print()
+        else:
+            print("No untagged papers.")
+
+        for (relpath, filepath, citation_key) in untagged_pdfs:
+            tag = prompt_user("Please enter tag for '" + citation_key + "': ")
+            tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+    else:
+        if tag is None:
+            # get tag from command line
+            tag = prompt_user("Please enter tag: ")
+
+        tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+
+def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
+    print("Tagging", citation_key, "with tag", tag, "...")
+
+    pdf_tag_dir = os.path.join(ck_tag_dir, tag)
+    os.makedirs(pdf_tag_dir, exist_ok=True)
+
+    pdfname = citation_key + ".pdf"
+    os.symlink(os.path.join(ck_bib_dir, pdfname), os.path.join(pdf_tag_dir, pdfname))
 
 @ck.command('rm')
 @click.option(
@@ -426,10 +528,7 @@ def ck_rm_cmd(ctx, force, citation_key):
 
     if something_to_del:
         if not force:
-            sys.stdout.write("Are you sure you want to delete '" + citation_key + "' from the library? [y/N]: ")
-            sys.stdout.flush()
-            answer = sys.stdin.readline().strip()
-            if answer != "y":
+            if not confirm_user("Are you sure you want to delete '" + citation_key + "' from the library?"):
                 print("Okay, not deleting anything.")
                 return
 
