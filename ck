@@ -392,7 +392,9 @@ def ck_bib_cmd(ctx, citation_key):
 
     path = os.path.join(ck_bib_dir, citation_key + '.bib')
     if os.path.exists(path) is False:
-        print("ERROR:", citation_key, "has no .bib file")
+        if confirm_user(citation_key + " has no .bib file. Would you like to create it?"):
+            ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
+
         sys.exit(1)
 
     #with open(path) as bibf:
