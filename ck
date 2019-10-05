@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from citationkeys.misc import *
+from citationkeys.urlhandlers import *
 from fake_useragent import UserAgent
 from http.cookiejar import CookieJar
 from pprint import pprint
@@ -12,16 +13,15 @@ from urllib.request import Request
 
 # NOTE: Alphabetical order please
 import appdirs
+import bibtexparser
 import bs4
 import click
 import configparser
 import datetime
 import os
 import pyperclip
-import smtplib
 import subprocess
 import sys
-import tempfile
 import urllib
 
 class AliasedGroup(click.Group):
@@ -39,57 +39,6 @@ class AliasedGroup(click.Group):
             return click.Group.get_command(self, ctx, matches[0])
 
         ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
-
-def prompt_user(prompt):
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    answer = sys.stdin.readline().strip()
-    return answer
-
-def confirm_user(prompt):
-    prompt += " [y/N]: "
-    ans = prompt_user(prompt).strip()
-    return ans.lower() == "y" or ans.lower() == "yes"
-
-def notimplemented():
-    print()
-    print("ERROR: Not implemented yet. Exiting...")
-    print()
-    sys.exit(0)
-
-def get_url(opener, url, verbosity, user_agent):
-    if verbosity > 0:
-        print("Downloading URL:", url)
-
-    if user_agent is not None:
-        response = opener.open(Request(url, headers={'User-Agent': user_agent}))
-    else:
-        response = opener.open(url)
-
-    if response.getcode() != 200:
-        print("ERROR: Got" + response.getcode() + " response code")
-        raise
-
-    html = response.read()
-
-    if verbosity > 2:
-        print("Downloaded:")
-        print(html)
-
-    if verbosity > 0:
-        print(" * Done.")
-
-    return html
-
-def file_to_string(path):
-    with open(path, 'r') as f:
-        data = f.read()
-    
-    return data
-
-def string_to_file(string, path):
-    with open(path, 'w') as output:
-        output.write(string)
 
 #@click.group(invoke_without_command=True)
 @click.group(cls=AliasedGroup)
@@ -137,12 +86,6 @@ def ck(ctx, config_file, verbose):
     else:
         print("ERROR:", sys.platform, "is not supported")
         sys.exit(1)
-
-def ck_to_pdf(ck_bib_dir, ck):
-    return os.path.join(ck_bib_dir, ck + ".pdf")
-
-def ck_to_bib(ck_bib_dir, ck):
-    return os.path.join(ck_bib_dir, ck + ".bib")
 
 @ck.command('check')
 @click.pass_context
@@ -227,8 +170,9 @@ def ck_add_cmd(ctx, url, citation_key, just_add):
     if verbosity > 0:
         print("Verbosity:", verbosity)
 
-    #now = datetime.datetime.now()
-    #print("Time:", now.strftime("%Y-%m-%d %H:%M"))
+    now = datetime.datetime.now()
+    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+    #print("Time:", nowstr)
     
     # Make sure paper doesn't exist in the library first
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
@@ -279,146 +223,20 @@ def ck_add_cmd(ctx, url, citation_key, just_add):
         sys.exit(1)
 
     if not just_add:
+        # change the citation key in the .bib file to citation_key
+        with open(destbibfile) as bibf:
+            bibtex = bibtexparser.load(bibf)
+        bibtex.entries[0]['ID'] = citation_key
+
+        # add ckdateadded field to keep track of papers by date added
+        bibtex.entries[0]['ckdateadded'] = nowstr
+
+        bibwriter = BibTexWriter()
+        with open(destbibfile, 'w') as bibf:
+            bibf.write(bibwriter.write(bibtex))
+
         # prompt user to tag paper
         ctx.invoke(ck_tag_cmd, citation_key=citation_key)
-        # TODO: Automatically change the citation key in the .bib file to citation_key
-        ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
-
-def download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity):
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, None, None, verbosity)
-
-def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity):
-    if pdfurl is not None:
-        data = get_url(opener, pdfurl, verbosity, user_agent)
-
-        with open(destpdffile, 'wb') as output:
-            output.write(data)
-
-    if biburl is not None:
-        data = get_url(opener, biburl, verbosity, user_agent)
-
-        with open(destbibfile, 'wb') as output:
-            output.write(data)
-
-def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    paper_id = parsed_url.query.split('=')[1]
-    if verbosity > 0:
-        print("ACM DL paper ID:", paper_id)
-    # first, we scrape the PDF link
-    elem = soup.find('a', attrs={"name": "FullTextPDF"})
-
-    # then, we download the PDF
-    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
-    pdfurl = url_prefix + '/'  + elem.get('href')
-
-    # second, we scrape the .bib link
-    # We use the <meta name="citation_abstract_html_url" content="http://dl.acm.org/citation.cfm?id=28395.28420"> tag in the <head> 
-    elem = soup.find("head").find("meta", attrs={"name": "citation_abstract_html_url"})
-    newurl = urlparse(elem['content'])
-    ids = newurl.query
-    parent_id = ids.split('=')[1].split('.')[0]
-    if verbosity > 0:
-        print("ACM DL parent ID:", parent_id)
-
-    # then, we download the .bib file from, say, https://dl.acm.org/downformats.cfm?id=28420&parent_id=28395&expformat=bibtex
-    biburl = url_prefix + '/downformats.cfm?id=' + paper_id + '&parent_id=' + parent_id + '&expformat=bibtex'
-
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
-
-def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    # let's accept links in both formats
-    #  - https://eprint.iacr.org/2015/525.pdf
-    #  - https://eprint.iacr.org/2015/525
-    path = parsed_url.path[1:]
-    if path.endswith(".pdf"):
-        path = path[:-4]
-        pdfurl = urlunparse(parsed_url)
-    else:
-        pdfurl = urlunparse(parsed_url) + ".pdf"
-
-    download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
-
-    biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + path
-    print("Downloading BibTeX from", biburl)
-    html = get_url(opener, biburl, verbosity, user_agent)
-    bibsoup = BeautifulSoup(html, parser)
-    bibtex = bibsoup.find('pre').text.strip()
-
-    with open(destbibfile, 'wb') as output:
-        output.write(bibtex.encode('utf-8'))
-
-def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
-    path = parsed_url.path
-    paper_id = path[len('chapter/'):]
-    print("Paper ID:", paper_id)
-
-    elem = soup.select_one("#cobranding-and-download-availability-text > div > a")
-    if verbosity > 0:
-        print("HTML for PDF:", elem)
-
-    pdfurl = url_prefix + elem.get('href')
-    
-    #elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
-    # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
-    biburl = 'https://citation-needed.springer.com/v2/references' + paper_id + '?format=bibtex&flavour=citation'
-
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
-
-def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
-    path = parsed_url.path
-
-    splitpath = path.split('/')
-    doi_start = splitpath[2]
-    doi_end   = splitpath[3]
-    doi       = doi_start + '/' + doi_end
-    doi_alt   = doi_start + '%2F' + doi_end
-    
-    if verbosity > 0:
-        print("Extracted DOI:", doi)
-
-    # e.g., URL to download BibTeX for doi:10.1137/S0097539790187084
-    # https://epubs.siam.org/action/downloadCitation?doi=10.1137%2FS0097539790187084&format=bibtex&include=cit
-    pdfurl = url_prefix + '/doi/pdf/' + doi
-    biburl = url_prefix + '/action/downloadCitation?doi=' + doi_alt + '&format=bibtex&include=cit'
-
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
-
-def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
-    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
-    path = parsed_url.path
-
-    splitpath = path.split('/')
-    arnum = splitpath[2]
-
-    # To get the PDF link, we have to download an HTML page which puts the PDF in an iframe. Doh.
-    # e.g., https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7958589
-    # (How do you come up with this design?)
-    pdf_iframe_url = url_prefix + '/stamp/stamp.jsp?tp=&arnumber=' + str(arnum)
-    html = get_url(opener, pdf_iframe_url, verbosity, user_agent)
-    pdfsoup = BeautifulSoup(html, parser)
-    elem = pdfsoup.find('iframe')
-
-    # e.g., PDF URL
-    # https://ieeexplore.ieee.org/ielx7/7957740/7958557/07958589.pdf
-    # e.g., BibTeX URL
-    # https://ieeexplore.ieee.org/xpl/downloadCitations?recordIds=7958589&download-format=download-bibtex&citations-format=citation-only
-    if verbosity > 1:
-        print("Parsed iframe tag:", elem)
-
-    pdfurl = elem['src']
-    biburl = url_prefix + '/xpl/downloadCitations?recordIds=' + arnum + '&download-format=download-bibtex&citations-format=citation-abstract'
-
-    tmpbibf = tempfile.NamedTemporaryFile(delete=True)
-    tmpbibfile = tmpbibf.name
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, tmpbibfile, verbosity)
-
-    # clean the .bib file, which IEEExplore kindly serves with <br>'s in it
-    bibtex = file_to_string(tmpbibfile)
-    tmpbibf.close()
-    bibtex = bibtex.replace('<br>', '')
-    string_to_file(bibtex, destbibfile)
 
 @ck.command('config')
 @click.pass_context
@@ -432,63 +250,6 @@ def ck_config_cmd(ctx):
     os.system(ck_text_editor + " \"" + fullpath + "\"");
     if os.path.exists(fullpath):
         print(file_to_string(fullpath).strip())
-
-def find_tagged_pdfs(dirpath, verbosity):
-    tagged_pdfs = set()
-    for relpath in os.listdir(dirpath):
-        fullpath = os.path.join(dirpath, relpath)
-        citation_key, extension = os.path.splitext(relpath)
-        #filename = os.path.basename(filepath)
-
-        if os.path.isdir(fullpath):
-            tagged_pdfs.update(find_tagged_pdfs(fullpath, verbosity))
-        elif os.path.islink(fullpath):
-            if verbosity > 1:
-                print("Symlink:", fullpath)
-            if extension.lower() == ".pdf":
-                realpath = os.readlink(fullpath)
-                if verbosity > 1:
-                    print(' \->', realpath)
-                tagged_pdfs.add(realpath)
-
-    return tagged_pdfs
-
-def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
-    tagged_pdfs = find_tagged_pdfs(ck_tag_dir, verbosity)
-    untagged = set()
-
-    if verbosity > 1:
-        print("Tagged papers:", tagged_pdfs)
-
-    for relpath in os.listdir(ck_bib_dir):
-        filepath = os.path.join(ck_bib_dir, relpath)
-        citation_key, extension = os.path.splitext(relpath)
-        #filename = os.path.basename(filepath)
-
-        if extension.lower() == ".pdf":
-            if filepath not in tagged_pdfs:
-                untagged.add((relpath, filepath, citation_key))
-
-    return untagged
-
-def get_tags(ck_tag_dir):
-    tags = []
-    for tag in os.listdir(ck_tag_dir):
-        tags.append(tag)
-    return sorted(tags)
-
-def print_tags(ck_tag_dir):
-    sys.stdout.write("Tags: ")
-    print(get_tags(ck_tag_dir))
-    print()
-
-def prompt_for_tags(prompt):
-    tags_str = prompt_user(prompt)
-    tags = tags_str.split(',')
-
-    tags = [t.strip() for t in tags]
-    tags = filter(lambda t: len(t) > 0, tags)
-    return tags
 
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -537,16 +298,6 @@ def ck_tag_cmd(ctx, citation_key, tag):
 
             for tag in tags:
                 tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
-
-def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
-    print("Tagging", citation_key, "with tag", tag, "...")
-
-    pdf_tag_dir = os.path.join(ck_tag_dir, tag)
-    # TODO: if dir doesn't exist, prompt user to create it, unless --yes option is passed
-    os.makedirs(pdf_tag_dir, exist_ok=True)
-
-    pdfname = citation_key + ".pdf"
-    os.symlink(os.path.join(ck_bib_dir, pdfname), os.path.join(pdf_tag_dir, pdfname))
 
 @ck.command('rm')
 @click.option(
@@ -643,6 +394,18 @@ def ck_bib_cmd(ctx, citation_key):
     if os.path.exists(path) is False:
         print("ERROR:", citation_key, "has no .bib file")
         sys.exit(1)
+
+    #with open(path) as bibf:
+    #    bibtex = bibtexparser.load(bibf)
+    #bibtex.entries[0]['ID'] = citation_key
+
+    #bibwriter = BibTexWriter()
+    #with open('/tmp/lol.bib', 'w') as bibf:
+    #    bibf.write(bibwriter.write(bibtex))
+
+    #print(bibtex.entries)
+    #print("Comments: ")
+    #print(bibtex.comments)
 
     bibtex = file_to_string(path).strip()
     print()

@@ -13,7 +13,7 @@ Features:
 Dependencies
 ------------
 
-    pip install click pyperclip beautifulsoup4 appdirs fake-useragent
+    pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser
 
 Other useful, related repositories
 ----------------------------------
