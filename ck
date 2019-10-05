@@ -155,6 +155,9 @@ def ck_check_cmd(ctx):
     ck_tag_dir = ctx.obj['ck_tag_dir']
 
     # find PDFs without bib files (and viceversa)
+    missing = {}
+    missing['.pdf'] = []
+    missing['.bib'] = []
     for relpath in os.listdir(ck_bib_dir):
         filepath = os.path.join(ck_bib_dir, relpath)
         filename, extensionOrig = os.path.splitext(relpath)
@@ -179,7 +182,19 @@ def ck_check_cmd(ctx):
 
         counterpart = os.path.join(ck_bib_dir, filename + counterpart_ext)
         if not os.path.exists(counterpart):
-            print("WARNING: '" + relpath + "' should have a " + counterpart_ext + " file in bibdir")
+            missing[counterpart_ext].append(filename)
+
+    for ext in [ '.pdf', '.bib' ]:
+        if len(missing[ext]) > 0:
+            print("Papers with missing " + ext + " files:")
+            print("------------------------------")
+
+        missing[ext].sort()
+        for f in missing[ext]:
+            print(" - " + f)
+
+        if len(missing[ext]) > 0:
+            print()
         
     # make sure all .pdf extensions are lowercase in tagdir
     for relpath in os.listdir(ck_tag_dir):
