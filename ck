@@ -528,7 +528,8 @@ def ck_genbib(ctx, output_file):
     ck_bib_dir = ctx.obj['ck_bib_dir']
 
     num = 0
-    for relpath in os.listdir(ck_bib_dir):
+    sortedfiles = sorted(os.listdir(ck_bib_dir))
+    for relpath in sortedfiles:
         filepath = os.path.join(ck_bib_dir, relpath)
         filename, extension = os.path.splitext(relpath)
 
