@@ -279,23 +279,24 @@ def ck_tag_cmd(ctx, citation_key, tag):
 
                 first_iter = False
             sys.stdout.write("\b\b")
-            print()
+            print('\n')
         else:
             print("No untagged papers.")
 
         for (relpath, filepath, citation_key) in untagged_pdfs:
-            print_tags(ck_tag_dir)
+            ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
+            print_tags(ck_tag_dir)
             tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
             for tag in tags:
                 tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
     else:
         if tag is None:
+            ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
+
             # get tag from command line
             print_tags(ck_tag_dir)
-
             tags = prompt_for_tags("Please enter tag(s): ")
-
             for tag in tags:
                 tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
 
@@ -394,8 +395,13 @@ def ck_open_cmd(ctx, filename):
 
 @ck.command('bib')
 @click.argument('citation_key', required=True, type=click.STRING)
+@click.option(
+    '--clipboard/--no-clipboard',
+    default=False,
+    help='To (not) copy the BibTeX to clipboard.'
+    )
 @click.pass_context
-def ck_bib_cmd(ctx, citation_key):
+def ck_bib_cmd(ctx, citation_key, clipboard):
     """Prints the paper's BibTeX and copies it to the clipboard."""
 
     ctx.ensure_object(dict)
@@ -429,9 +435,10 @@ def ck_bib_cmd(ctx, citation_key):
     print()
     print(bibtex)
     print()
-    print("Copied to clipboard!")
-    print()
-    pyperclip.copy(bibtex)
+    if clipboard:
+        pyperclip.copy(bibtex)
+        print("Copied to clipboard!")
+        print()
 
 @ck.command('rename')
 @click.argument('old_citation_key', required=True, type=click.STRING)
