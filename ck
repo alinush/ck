@@ -339,9 +339,9 @@ def ck_rm_cmd(ctx, force, citation_key):
         print(citation_key, "is not in library. Nothing to delete.")
 
 @ck.command('open')
-@click.argument('pdf_or_bib_file', required=True, type=click.STRING)
+@click.argument('filename', required=True, type=click.STRING)
 @click.pass_context
-def ck_open_cmd(ctx, pdf_or_bib_file):
+def ck_open_cmd(ctx, filename):
     """Opens the .pdf or .bib file."""
 
     ctx.ensure_object(dict)
@@ -350,17 +350,17 @@ def ck_open_cmd(ctx, pdf_or_bib_file):
     ck_open        = ctx.obj['ck_open'];
     ck_text_editor = ctx.obj['ck_text_editor'];
 
-    filename, extension = os.path.splitext(pdf_or_bib_file)
+    basename, extension = os.path.splitext(filename)
 
-    if not extension.strip():
-        pdf_or_bib_file = pdf_or_bib_file + ".pdf"
+    if len(extension.strip()) == 0:
+        filename = basename + ".pdf"
         extension = '.pdf'
         
-    fullpath = os.path.join(ck_bib_dir, pdf_or_bib_file)
+    fullpath = os.path.join(ck_bib_dir, filename)
 
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
-            print("ERROR:", filename, "paper is NOT in the library as a PDF")
+            print("ERROR:", basename, "paper is NOT in the library as a PDF")
             sys.exit(1)
 
         # not interested in output
@@ -374,6 +374,20 @@ def ck_open_cmd(ctx, pdf_or_bib_file):
         os.system(ck_text_editor + " " + fullpath);
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
+
+    elif extension.lower() == '.md':
+        # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
+        os.system('cd "' + ck_bib_dir + '" && ' + ck_text_editor + ' "' + filename + '"')
+    elif extension.lower() == '.html':
+        if os.path.exists(fullpath) is False:
+            print("ERROR: No HTML notes in the library for '" + basename + "'")
+            sys.exit(1)
+
+        completed = subprocess.run(
+            [ck_open, fullpath],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        );
     else:
         print("ERROR:", extension.lower(), "extension is not supported")
         sys.exit(1)
@@ -393,7 +407,7 @@ def ck_bib_cmd(ctx, citation_key):
     path = os.path.join(ck_bib_dir, citation_key + '.bib')
     if os.path.exists(path) is False:
         if confirm_user(citation_key + " has no .bib file. Would you like to create it?"):
-            ctx.invoke(ck_open_cmd, pdf_or_bib_file=citation_key + ".bib")
+            ctx.invoke(ck_open_cmd, filename=citation_key + ".bib")
 
         sys.exit(1)
 
