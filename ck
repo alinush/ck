@@ -149,6 +149,7 @@ def ck_check_cmd(ctx):
             print("WARNING:", filepath, "has uppercase .pdf extension in tagdir")
     
     # TODO: make sure symlinks are not broken in tagdir
+    # TODO: make sure all .bib files have the right CK and have ckdateadded
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)

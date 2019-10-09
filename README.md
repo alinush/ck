@@ -31,10 +31,13 @@ TODOs
 
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
  - figure out how to have a setup.py that installs this thing
- - how to list files sorted by add date? where to keep a 'date-added' field?
- - add aliases for subcommands; see [here](http://click.palletsprojects.com/en/5.x/advanced/)
  - `ck` command
     - list all conferences across papers
+    - `list` subcommand
+        - if you are in a `ck_tag_dir` subdirectory, just list the papers with that tag
+            + display: ck, title, authors (abbreviate somehow), year, and conference
+            - add sort-by options
+        - otherwise display all papers
     + `open` subcommand
         - autocomplete citation key
         - if you type in a partial citation key, should list all matches
