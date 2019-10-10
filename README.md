@@ -26,6 +26,33 @@ Other useful, related repositories
 
 Just search GitHub for more: ["ieeexplore downloadcitations"](https://github.com/search?q=ieeexplore+downloadcitations&type=Code)
 
+How to use
+----------
+
+    # add a paper to your library given a paywall URL (e.g., ACM DL, SpringerLink, IEEEXplore)
+    # or an eprint url (e.g., IACR eprint)
+    ck add <paper-url> <citation-key>
+
+    # add a bib file to your library without a PDF
+    ck open <citation-key>.bib
+    # ...and edit the .bib file and save it
+
+    # open a paper's PDF
+    ck open <citation-key>
+    ck open <citation-key>.pdf
+
+    # open a paper's .bib file
+    ck open <citation-key>.bib
+
+    # prompts you to tag all currently untagged papers
+    git tag
+
+    # tag the paper with <tag> (or enter tag manually from keyboard)
+    git tag <citation-key> [<tag>]
+
+    # search all your .bib files and print matching papers' citation keys
+    git search <query>
+
 TODOs
 -----
 
