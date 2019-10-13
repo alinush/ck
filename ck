@@ -377,6 +377,8 @@ def ck_open_cmd(ctx, filename):
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
 
+        # TODO: Warn if bib file is missing 'ckdateadded' field
+
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
         os.system('cd "' + ck_bib_dir + '" && ' + ck_text_editor + ' "' + filename + '"')
