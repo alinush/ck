@@ -67,6 +67,7 @@ TODOs
         - otherwise display all papers
     + `open` subcommand
         - autocomplete citation key
+            + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
         - if you type in a partial citation key, should list all matches
             - if just one match, should just open it, displaying a warning that it only partially matched so as to not train you to use the wrong CK
         - if you type an ambiguous citation key (lowercase / uppercase), maybe you should be prompted for what to open, because there won't be many matches.
