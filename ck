@@ -298,8 +298,11 @@ def ck_tag_cmd(ctx, citation_key, tag):
             # get tag from command line
             print_tags(ck_tag_dir)
             tags = prompt_for_tags("Please enter tag(s): ")
-            for tag in tags:
-                tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+        else:
+            tags = [ tag ]
+
+        for tag in tags:
+            tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
 
 @ck.command('rm')
 @click.option(
