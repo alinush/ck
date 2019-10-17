@@ -60,11 +60,10 @@ TODOs
  - figure out how to have a setup.py that installs this thing
  - `ck` command
     - list all conferences across papers
+    - `open` subcommand
+        - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
     - `list` subcommand
-        - if you are in a `ck_tag_dir` subdirectory, just list the papers with that tag
-            + display: ck, title, authors (abbreviate somehow), year, and conference
-            - add sort-by options
-        - otherwise display all papers
+        - add sort-by options
     + `open` subcommand
         - autocomplete citation key
             + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
