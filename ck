@@ -504,37 +504,87 @@ def ck_search_cmd(ctx, query, case_sensitive):
         print("No matches!")
 
 @ck.command('list')
-#@click.argument('query', required=False, type=click.STRING)
+@click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
 @click.pass_context
-def ck_list_cmd(ctx):
+def ck_list_cmd(ctx, directory):
     """Lists all citation keys in the library"""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['ck_tag_dir']))
 
-    ck_set = set()
-    for relpath in os.listdir(ck_bib_dir):
-        filepath = os.path.join(ck_bib_dir, relpath)
-        filename, extension = os.path.splitext(relpath)
-
-        if extension.lower() == ".pdf" or extension.lower() == ".bib":
-            ck_set.add(filename)
-
-    cks = sorted(ck_set)
-    for ck in cks:
-        print(ck)
+    if directory is not None:
+        paper_dir = str(directory)
+    else:
+        cwd = os.path.normpath(os.getcwd())
+        common_prefix = os.path.commonpath([ck_tag_dir, cwd])
+        is_in_tag_dir = (common_prefix == ck_tag_dir)
 
         if verbosity > 0:
-            bibfile = os.path.join(ck_bib_dir, filename + ".bib")
-            if os.path.exists(bibfile) is False:
-                print("WARNING: No .bib file for '%s' paper" % (filename))
-            else:
-                print(file_to_string(bibfile))
-            print
+            print("Current working directory: ", cwd) 
+            print("Tag directory:             ", ck_tag_dir) 
+            print("Is in tag dir? ", is_in_tag_dir)
+            print()
+
+        if is_in_tag_dir:
+            paper_dir=cwd
+        else:
+            paper_dir=ck_bib_dir
+
+    if verbosity > 0:
+        print("Looking in directory: ", paper_dir) 
+
+    ck_set = set()
+    for rootdir, reldir, relpaths in os.walk(paper_dir):
+        if verbosity > 1:
+            print("rootdir:  ", rootdir)
+            print("reldir:   ", reldir)
+            print("relpaths: ", relpaths)
+
+        for relpath in relpaths:
+            filepath = os.path.join(rootdir, relpath)
+            filename, extension = os.path.splitext(relpath)
+
+            if extension.lower() == ".pdf" or extension.lower() == ".bib":
+                # TODO: Might want to support subdirectories, so this should be a dict() with the subdirectory as a key.
+                # Then, we can list the papers by subdirectory below.
+                ck_set.add(filename)
+
+    cks = sorted(ck_set)
+    nobibs = set()
+    for ck in cks:
+        # TODO: Take flags that decide what to print. For now, "title, authors, year"
+        bibfile = os.path.join(ck_bib_dir, ck + ".bib")
+        if verbosity > 1:
+            print("Parsing BibTeX for " + ck)
+
+        try:
+            with open(bibfile) as bibf:
+                bibtex = bibtexparser.load(bibf)
+        except:
+            nobibs.add(ck)
+
+        bib = bibtex.entries[0]
+
+        # make sure the CK in the .bib matches the filename
+        bck = bib['ID']
+        if bck != ck:
+            print("WARNING: '" + ck + "' CK in " + paper_dir + " does not match '" + bck + "' in .bib file")
+
+        author = bib['author']
+        title  = bib['title']
+        year   = bib['year']
+
+        print(ck + ": \"" + title + "\" by " + author + ", " + year)
+
+    if len(nobibs) > 0:
+        print()
+        print("WARNING: Detected PDFs without .bib files: ")
+        print(nobibs)
 
     print()
-    print(str(len(cks)) + " PDFs/.bib's in the library")
+    print(str(len(cks)) + " PDFs in " + paper_dir)
 
     # TODO: query could be a space-separated list of tokens
     # a token can be a hashtag (e.g., #dkg-dlog) or a sorting token (e.g., 'year')
