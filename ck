@@ -226,7 +226,9 @@ def ck_add_cmd(ctx, url, citation_key, just_add):
     if not just_add:
         # change the citation key in the .bib file to citation_key
         with open(destbibfile) as bibf:
-            bibtex = bibtexparser.load(bibf)
+            # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
+            parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+            bibtex = bibtexparser.load(bibf, parser)
         bibtex.entries[0]['ID'] = citation_key
 
         # add ckdateadded field to keep track of papers by date added
@@ -423,18 +425,6 @@ def ck_bib_cmd(ctx, citation_key, clipboard):
 
         sys.exit(1)
 
-    #with open(path) as bibf:
-    #    bibtex = bibtexparser.load(bibf)
-    #bibtex.entries[0]['ID'] = citation_key
-
-    #bibwriter = BibTexWriter()
-    #with open('/tmp/lol.bib', 'w') as bibf:
-    #    bibf.write(bibwriter.write(bibtex))
-
-    #print(bibtex.entries)
-    #print("Comments: ")
-    #print(bibtex.comments)
-
     bibtex = file_to_string(path).strip()
     print()
     print("BibTeX for '%s'" % path)
@@ -563,6 +553,9 @@ def ck_list_cmd(ctx, directory):
             with open(bibfile) as bibf:
                 bibtex = bibtexparser.load(bibf)
 
+            #print(bibtex.entries)
+            #print("Comments: ")
+            #print(bibtex.comments)
             bib = bibtex.entries[0]
 
             # make sure the CK in the .bib matches the filename
