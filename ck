@@ -562,21 +562,22 @@ def ck_list_cmd(ctx, directory):
         try:
             with open(bibfile) as bibf:
                 bibtex = bibtexparser.load(bibf)
+
+            bib = bibtex.entries[0]
+
+            # make sure the CK in the .bib matches the filename
+            bck = bib['ID']
+            if bck != ck:
+                print("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n")
+
+            author = bib['author'].replace('\r', '').replace('\n', '').strip()
+            title  = bib['title']
+            year   = bib['year']
+
+            print(ck + ": \"" + title + "\" by " + author + ", " + year)
+
         except:
             nobibs.add(ck)
-
-        bib = bibtex.entries[0]
-
-        # make sure the CK in the .bib matches the filename
-        bck = bib['ID']
-        if bck != ck:
-            print("WARNING: '" + ck + "' CK in " + paper_dir + " does not match '" + bck + "' in .bib file")
-
-        author = bib['author']
-        title  = bib['title']
-        year   = bib['year']
-
-        print(ck + ": \"" + title + "\" by " + author + ", " + year)
 
     if len(nobibs) > 0:
         print()

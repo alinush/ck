@@ -59,11 +59,13 @@ TODOs
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
  - figure out how to have a setup.py that installs this thing
  - `ck` command
-    - list all conferences across papers
     - `open` subcommand
         - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
     - `list` subcommand
+        - color highlight
         - add sort-by options
+        - list all conferences across papers
+        - fix files like `CMT12.slides.pdf` being reported as missing citations
     + `open` subcommand
         - autocomplete citation key
             + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
