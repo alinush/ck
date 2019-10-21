@@ -65,7 +65,6 @@ TODOs
         - color highlight
         - add sort-by options
         - list all conferences across papers
-        - fix files like `CMT12.slides.pdf` being reported as missing citations
     + `open` subcommand
         - autocomplete citation key
             + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)

@@ -40,10 +40,30 @@ def ck_to_pdf(ck_bib_dir, ck):
 def ck_to_bib(ck_bib_dir, ck):
     return os.path.join(ck_bib_dir, ck + ".bib")
 
-def find_tagged_pdfs(dirpath, verbosity):
+# NOTE: This can be called on the bibdir or on the tagdir and it proceeds recursively
+def list_cks(ck_bib_dir):
+    cks = set()
+
+    for filename in sorted(os.listdir(ck_bib_dir)):
+        fullpath = os.path.join(ck_bib_dir, filename)
+
+        if os.path.isdir(fullpath):
+            cks.update(list_cks(fullpath))
+        else:
+            ck, ext = os.path.splitext(filename)
+
+            # e.g., CMT12.pdf might have CMT12.slides.pdf next to it
+            if '.' in ck:
+                continue
+
+            cks.add(ck)
+
+    return sorted(cks);
+
+def find_tagged_pdfs(ck_tag_subdir, verbosity):
     tagged_pdfs = set()
-    for relpath in os.listdir(dirpath):
-        fullpath = os.path.join(dirpath, relpath)
+    for relpath in os.listdir(ck_tag_subdir):
+        fullpath = os.path.join(ck_tag_subdir, relpath)
         citation_key, extension = os.path.splitext(relpath)
         #filename = os.path.basename(filepath)
 
@@ -67,26 +87,46 @@ def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
     if verbosity > 1:
         print("Tagged papers:", tagged_pdfs)
 
-    for relpath in os.listdir(ck_bib_dir):
-        filepath = os.path.join(ck_bib_dir, relpath)
-        citation_key, extension = os.path.splitext(relpath)
+    cks = list_cks(ck_bib_dir)
+    for ck in cks:
+        filepath = os.path.join(ck_bib_dir, ck + ".pdf")
         #filename = os.path.basename(filepath)
 
-        if extension.lower() == ".pdf":
+        if os.path.exists(filepath):
             if filepath not in tagged_pdfs:
-                untagged.add((relpath, filepath, citation_key))
+                untagged.add((filepath, ck))
 
     return untagged
 
-def get_tags(ck_tag_dir):
+def get_tags(tagdir, prefix=''):
     tags = []
-    for tag in os.listdir(ck_tag_dir):
-        tags.append(tag)
+
+    for tagname in os.listdir(tagdir):
+        curdir = os.path.join(tagdir, tagname)
+        if not os.path.isdir(curdir):
+            #print(curdir, "is not a dir")
+            continue
+
+        if len(prefix) > 0:
+            fulltag = prefix + '/' + tagname
+        else:
+            fulltag = tagname
+
+        #print("Added " + fulltag)
+        tags.append(fulltag)
+
+        #print("Recursing on: " + curdir)
+        tags.extend(get_tags(curdir, fulltag))
+
     return sorted(tags)
 
 def print_tags(ck_tag_dir):
     sys.stdout.write("Tags: ")
-    print(get_tags(ck_tag_dir))
+    tags = get_tags(ck_tag_dir)
+    print(tags);
+    # TODO: pretty print somehow
+    #for t in tags: 
+    #    print(t)
     print()
 
 def prompt_for_tags(prompt):

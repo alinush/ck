@@ -257,14 +257,23 @@ def ck_config_cmd(ctx):
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tag', required=False, type=click.STRING)
+@click.option(
+    '-l', '--list', 'list_opt',
+    default=False,
+    is_flag=True,
+    help='Lists all the tags in the library.')
 @click.pass_context
-def ck_tag_cmd(ctx, citation_key, tag):
+def ck_tag_cmd(ctx, citation_key, tag, list_opt):
     """Tags the specified paper."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
     ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    if list_opt is True:
+        print_tags(ck_tag_dir)
+        sys.exit(0)
 
     if citation_key is None:
         # If no paper was specified, detects untagged papers and asks the user to tag them.
@@ -274,7 +283,7 @@ def ck_tag_cmd(ctx, citation_key, tag):
         if len(untagged_pdfs) > 0:
             sys.stdout.write("Untagged papers: ")
             first_iter = True
-            for (relpath, filepath, citation_key) in untagged_pdfs:
+            for (filepath, citation_key) in untagged_pdfs:
                 if not first_iter:
                     sys.stdout.write(", ")
                 sys.stdout.write(citation_key)
@@ -286,7 +295,7 @@ def ck_tag_cmd(ctx, citation_key, tag):
         else:
             print("No untagged papers.")
 
-        for (relpath, filepath, citation_key) in untagged_pdfs:
+        for (filepath, citation_key) in untagged_pdfs:
             ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
             print_tags(ck_tag_dir)
@@ -458,7 +467,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
 @click.option(
     '-c', '--case-sensitive',
     default=False,
-    help='Enables case-sensitive search'
+    help='Enables case-sensitive search.'
     )
 @click.pass_context
 def ck_search_cmd(ctx, query, case_sensitive):
@@ -525,23 +534,10 @@ def ck_list_cmd(ctx, directory):
     if verbosity > 0:
         print("Looking in directory: ", paper_dir) 
 
-    ck_set = set()
-    for rootdir, reldir, relpaths in os.walk(paper_dir):
-        if verbosity > 1:
-            print("rootdir:  ", rootdir)
-            print("reldir:   ", reldir)
-            print("relpaths: ", relpaths)
+    # TODO: Might want to support subdirectories, so this should be a dict() with the subdirectory as a key.
+    # Then, we can list the papers by subdirectory below.
+    cks = list_cks(paper_dir)
 
-        for relpath in relpaths:
-            filepath = os.path.join(rootdir, relpath)
-            filename, extension = os.path.splitext(relpath)
-
-            if extension.lower() == ".pdf" or extension.lower() == ".bib":
-                # TODO: Might want to support subdirectories, so this should be a dict() with the subdirectory as a key.
-                # Then, we can list the papers by subdirectory below.
-                ck_set.add(filename)
-
-    cks = sorted(ck_set)
     nobibs = set()
     for ck in cks:
         # TODO: Take flags that decide what to print. For now, "title, authors, year"
@@ -563,7 +559,7 @@ def ck_list_cmd(ctx, directory):
             if bck != ck:
                 print("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n")
 
-            author = bib['author'].replace('\r', '').replace('\n', '').strip()
+            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
             title  = bib['title']
             year   = bib['year']
 
