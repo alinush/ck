@@ -56,7 +56,8 @@ def list_cks(ck_bib_dir):
             if '.' in ck:
                 continue
 
-            cks.add(ck)
+            if ext.lower() == ".pdf" or ext.lower() == ".bib":
+                cks.add(ck)
 
     return sorted(cks);
 

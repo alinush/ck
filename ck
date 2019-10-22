@@ -90,7 +90,7 @@ def ck(ctx, config_file, verbose):
 @ck.command('check')
 @click.pass_context
 def ck_check_cmd(ctx):
-    """Checks the bibdir and tagdir for integrity."""
+    """Checks the BibDir and TagDir for integrity."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -101,31 +101,22 @@ def ck_check_cmd(ctx):
     missing = {}
     missing['.pdf'] = []
     missing['.bib'] = []
-    for relpath in os.listdir(ck_bib_dir):
-        filepath = os.path.join(ck_bib_dir, relpath)
-        filename, extensionOrig = os.path.splitext(relpath)
+    counterpart_ext = {}
+    counterpart_ext['.pdf'] = '.bib'
+    counterpart_ext['.bib'] = '.pdf'
 
-        if verbosity > 1:
-            print("Checking", relpath)
+    extensions = missing.keys()
+    for ck in list_cks(ck_bib_dir):
+        for ext in extensions:
+            filepath = os.path.join(ck_bib_dir, ck + ext)
 
-        extension = extensionOrig.lower()
+            if verbosity > 1:
+                print("Checking", relpath)
 
-        if extension == ".bib":
-            if extension != extensionOrig:
-                print("WARNING:", filepath, "has uppercase .bib extension")
+            counterpart = os.path.join(ck_bib_dir, ck + counterpart_ext[ext])
 
-            counterpart_ext = ".pdf"
-        elif extension == ".pdf":
-            if extension != extensionOrig:
-                print("WARNING:", filepath, "has uppercase .pdf extension")
-           
-            counterpart_ext = ".bib"
-        else:
-            continue
-
-        counterpart = os.path.join(ck_bib_dir, filename + counterpart_ext)
-        if not os.path.exists(counterpart):
-            missing[counterpart_ext].append(filename)
+            if not os.path.exists(counterpart):
+                missing[counterpart_ext[ext]].append(ck)
 
     for ext in [ '.pdf', '.bib' ]:
         if len(missing[ext]) > 0:
@@ -142,11 +133,11 @@ def ck_check_cmd(ctx):
     # make sure all .pdf extensions are lowercase in tagdir
     for relpath in os.listdir(ck_tag_dir):
         filepath = os.path.join(ck_tag_dir, relpath)
-        filename, extensionOrig = os.path.splitext(relpath)
+        ck, extOrig = os.path.splitext(relpath)
         
-        extension = extensionOrig.lower()
-        if extension != extensionOrig:
-            print("WARNING:", filepath, "has uppercase .pdf extension in tagdir")
+        ext = extOrig.lower()
+        if ext != extOrig:
+            print("WARNING:", filepath, "has uppercase", "." + extOrig, "extension in TagDir")
     
     # TODO: make sure symlinks are not broken in tagdir
     # TODO: make sure all .bib files have the right CK and have ckdateadded
@@ -450,7 +441,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard):
 @click.argument('new_citation_key', required=True, type=click.STRING)
 @click.pass_context
 def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
-    """Renames a paper's .pdf and .bib file with a new citation key. Updates its .bib file and all symlinks to it in the tagdir."""
+    """Renames a paper's .pdf and .bib file with a new citation key. Updates its .bib file and all symlinks to it in the TagDir."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
