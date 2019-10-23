@@ -146,13 +146,19 @@ def ck_check_cmd(ctx):
 @click.argument('url', required=True, type=click.STRING)
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.option(
-    '-n', '--just-add',
+    '-n', '--no-tag-prompt',
     is_flag=True,
     default=False,
-    help='Just adds the paper; does not tag it or open its .bib file.'
+    help='Does not prompt the user to tag the paper.'
+    )
+@click.option(
+    '-c', '--no-rename-ck',
+    is_flag=True,
+    default=False,
+    help='Does not rename the CK in the .bib file.'
     )
 @click.pass_context
-def ck_add_cmd(ctx, url, citation_key, just_add):
+def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     """Adds the paper to the library (.pdf and .bib file)."""
 
     ctx.ensure_object(dict)
@@ -214,8 +220,11 @@ def ck_add_cmd(ctx, url, citation_key, just_add):
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
 
-    if not just_add:
+    if not no_rename_ck:
         # change the citation key in the .bib file to citation_key
+        if verbosity > 0:
+            print("Renaming CK to " + citation_key + " in " + destbibfile)
+
         with open(destbibfile) as bibf:
             # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
             parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
@@ -229,6 +238,7 @@ def ck_add_cmd(ctx, url, citation_key, just_add):
         with open(destbibfile, 'w') as bibf:
             bibf.write(bibwriter.write(bibtex))
 
+    if not no_tag_prompt:
         # prompt user to tag paper
         ctx.invoke(ck_tag_cmd, citation_key=citation_key)
 

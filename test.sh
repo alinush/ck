@@ -7,7 +7,7 @@ ckdir='/tmp/ck'
 bibdir="$ckdir/papers"
 tagdir="$ckdir/tags"
 
-if [ -n "`find $bibdir -type f`" ]; then
+if [ -d "$bibdir" -a -n "`find $bibdir -type f`" ]; then
     echo "ERROR: bibdir '$bibdir' should be empty! Please clean."
     exit 1
 fi
@@ -37,7 +37,11 @@ pdf_hashes=(
 bib_hashes=(
 "99dae3559882be087149a2ab538a710cc6950653bf32c3ecc6b6c0068a2d66c7"
 "d4d3e51b2817a6acd0506fde765c92afeb830ca7f06d414f7f99aad893b3e9f6"
-"b6d380ba2eb67b8f4c98f48f2a59f7753cd41c8b51a4ab63fcfcc51fc4ec0501"
+
+# SIAM
+#"b6d380ba2eb67b8f4c98f48f2a59f7753cd41c8b51a4ab63fcfcc51fc4ec0501"
+"44dc0c03e07039bf771f773cdea7031f3675eb21f18ee0cd2e96a5a7f55052d3"
+
 "23df56e2a5349ee51baa05d0915fa6e02f2f6474863ccead0dd818ae3aeab2ba"
 "23df56e2a5349ee51baa05d0915fa6e02f2f6474863ccead0dd818ae3aeab2ba"
 "31592cce2909cd2cbbd66576ae61892eb705cb70c90cd2a7f7d14a032bb73995"
@@ -58,7 +62,7 @@ for url in $urls; do
         pdf_hash_actual=${pdf_hashes[$i]}
         bib_hash_actual=${bib_hashes[$i]}
 
-        $scriptdir/ck -c $ck_config -v add --just-add "$url" $name
+        $scriptdir/ck -c $ck_config -v add --no-tag-prompt --no-rename-ck "$url" $name
         rc=$?
         i=$(($i+1))
 

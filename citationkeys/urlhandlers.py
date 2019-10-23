@@ -10,6 +10,7 @@ from http.cookiejar import CookieJar
 from pprint import pprint
 from urllib.parse import urlparse, urlunparse
 from urllib.request import Request
+from .misc import *
 
 # NOTE: Alphabetical order please
 import appdirs
@@ -68,6 +69,11 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
 
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
+
+    # sometimes the URL might have ?doid=<parentid>.<id> rather than just ?doid=<id>
+    if '.' in paper_id:
+        paper_id = paper_id.split('.')[1]
+
     if verbosity > 0:
         print("ACM DL paper ID:", paper_id)
     # first, we scrape the PDF link
