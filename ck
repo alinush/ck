@@ -161,6 +161,8 @@ def ck_check_cmd(ctx):
 def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     """Adds the paper to the library (.pdf and .bib file)."""
 
+    # TODO: come up with CK automatically if not specified & make sure it's unique (unclear how handle eprint version of the same paper)
+
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
