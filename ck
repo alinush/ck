@@ -394,7 +394,24 @@ def ck_open_cmd(ctx, filename):
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
 
-        # TODO: Warn if bib file is missing 'ckdateadded' field
+            # warn if bib file is missing 'ckdateadded' field
+            with open(fullpath) as bibf:
+                # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
+                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+                bibtex = bibtexparser.load(bibf, parser)
+
+            if 'ckdateadded' not in bibtex.entries[0]:
+                now = datetime.datetime.now()
+                nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+
+                if confirm_user("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
+                    # add ckdateadded field to keep track of papers by date added 
+                    bibtex.entries[0]['ckdateadded'] = nowstr
+
+                    # write back the .bib file
+                    bibwriter = BibTexWriter()
+                    with open(fullpath, 'w') as bibf:
+                        bibf.write(bibwriter.write(bibtex))
 
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
