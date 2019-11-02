@@ -199,7 +199,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     handlers["epubs.siam.org"] = epubssiam_handler
     handlers["ieeexplore.ieee.org"] = ieeexplore_handler
 
-    # TODO: Cornell arXiv
+    # TODO: Cornell arXiv. See https://arxiv.org/help/api/index.
     # TODO: Science direct
 
     no_index_html = dict()
