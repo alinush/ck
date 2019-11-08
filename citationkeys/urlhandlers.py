@@ -28,13 +28,20 @@ import tempfile
 import urllib
 
 def get_url(opener, url, verbosity, user_agent):
+    # TODO: handle 403 error and display HTML returned
     if verbosity > 0:
         print("Downloading URL:", url)
 
-    if user_agent is not None:
+    if user_agent is None:
+        raise "Please specify a user agent"
+
+    try:
         response = opener.open(Request(url, headers={'User-Agent': user_agent}))
-    else:
-        response = opener.open(url)
+    except urllib.error.HTTPError as err:
+        print("HTTP Error Code: ", err.code)
+        print("HTTP Error Reason: ", err.reason)
+        print("HTTP Error Headers: ", err.headers)
+        raise
 
     if response.getcode() != 200:
         print("ERROR: Got" + response.getcode() + " response code")
