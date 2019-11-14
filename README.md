@@ -66,6 +66,8 @@ TODOs
     - `list` subcommand
         - color highlight
         - add sort-by options
+            - need sort by most recently added (with date & time displayed)
+        - need to display tags of papers (add --tags option)
         - list all conferences across papers
     + `open` subcommand
         - autocomplete citation key
