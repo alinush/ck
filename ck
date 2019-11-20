@@ -561,7 +561,6 @@ def ck_list_cmd(ctx, directory):
     # Then, we can list the papers by subdirectory below.
     cks = list_cks(paper_dir)
 
-    nobibs = set()
     for ck in cks:
         # TODO: Take flags that decide what to print. For now, "title, authors, year"
         bibfile = os.path.join(ck_bib_dir, ck + ".bib")
@@ -589,12 +588,7 @@ def ck_list_cmd(ctx, directory):
             print(ck + ": \"" + title + "\" by " + author + ", " + year)
 
         except:
-            nobibs.add(ck)
-
-    if len(nobibs) > 0:
-        print()
-        print("WARNING: Detected PDFs without .bib files: ")
-        print(nobibs)
+            print(ck + ": -- missing BibTeX in " + ck_bib_dir + " --")
 
     print()
     print(str(len(cks)) + " PDFs in " + paper_dir)
