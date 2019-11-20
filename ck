@@ -58,8 +58,8 @@ def ck(ctx, config_file, verbose):
         click.echo('I was invoked without subcommand, listing bibliography...')
         notimplemented()
         click.echo('Call with --help for usage.')
-    #else:
-    #    click.echo("I am about to invoke '%s' subcommand" % ctx.invoked_subcommand)
+
+    #click.echo("I am about to invoke '%s' subcommand" % ctx.invoked_subcommand)
 
     # read configuration
     if verbose > 0:
@@ -86,6 +86,10 @@ def ck(ctx, config_file, verbose):
     else:
         print("ERROR:", sys.platform, "is not supported")
         sys.exit(1)
+
+    # always do a sanity check before invoking the actual subcommand
+    # TODO: figure out how to call this *after* (not before) the subcommand is invoked, so the user can actually see its output
+    ctx.invoke(ck_check_cmd)
 
 @ck.command('check')
 @click.pass_context
