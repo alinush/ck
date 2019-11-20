@@ -89,18 +89,14 @@ def ck(ctx, config_file, verbose):
 
     # always do a sanity check before invoking the actual subcommand
     # TODO: figure out how to call this *after* (not before) the subcommand is invoked, so the user can actually see its output
-    ctx.invoke(ck_check_cmd)
+    ck_check(ctx.obj['ck_bib_dir'], ctx.obj['ck_tag_dir'], verbose)
 
 @ck.command('check')
 @click.pass_context
 def ck_check_cmd(ctx):
     """Checks the BibDir and TagDir for integrity."""
 
-    ctx.ensure_object(dict)
-    verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
-
+def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # find PDFs without bib files (and viceversa)
     missing = {}
     missing['.pdf'] = []
