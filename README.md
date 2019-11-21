@@ -25,6 +25,7 @@ Other useful, related repositories
  - [iacr-dl](https://github.com/znewman01/iacr-dl)
  - [bibcure](https://github.com/bibcure/bibcure)
  - [scihub2pdf](https://github.com/bibcure/scihub2pdf)
+ - [scholrref](https://adamsgaard.dk/scholarref.html)
 
 Just search GitHub for more: ["ieeexplore downloadcitations"](https://github.com/search?q=ieeexplore+downloadcitations&type=Code)
 
