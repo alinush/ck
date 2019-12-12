@@ -7,6 +7,10 @@ from pprint import pprint
 import os
 import sys
 
+def get_terminal_width():
+    rows, columns = os.popen('stty size', 'r').read().split()
+    return columns
+
 def prompt_user(prompt):
     sys.stdout.write(prompt)
     sys.stdout.flush()
@@ -125,7 +129,7 @@ def print_tags(ck_tag_dir):
     sys.stdout.write("Tags: ")
     tags = get_tags(ck_tag_dir)
     print(tags);
-    # TODO: pretty print somehow
+    # TODO: pretty print. get width using get_terminal_width
     #for t in tags: 
     #    print(t)
     print()
