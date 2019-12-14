@@ -309,6 +309,11 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
             for tag in tags:
                 tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
     else:
+        destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
+        if not os.path.exists(destpdffile):
+            print("ERROR:", citation_key, "has no PDF file")
+            sys.exit(1)
+
         if tag is None:
             ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
