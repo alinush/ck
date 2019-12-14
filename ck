@@ -336,13 +336,20 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.pass_context
 def ck_rm_cmd(ctx, force, citation_key):
-    """Removes the paper from the library (.pdf and .bib file)."""
+    """Removes the paper from the library (.pdf and .bib file). Can provide citation key or filename with .pdf or .bib extension."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
     
-    files = [ ck_to_pdf(ck_bib_dir, citation_key), ck_to_bib(ck_bib_dir, citation_key) ]
+    # allow user to provide file name directly (or citation key to delete everything)
+    basename, extension = os.path.splitext(citation_key)
+
+    if len(extension.strip()) > 0:
+        files = [ os.path.join(ck_bib_dir, citation_key) ]
+    else:
+        files = [ ck_to_pdf(ck_bib_dir, citation_key), ck_to_bib(ck_bib_dir, citation_key) ]
+
     something_to_del = False
     for f in files:
         if os.path.exists(f):

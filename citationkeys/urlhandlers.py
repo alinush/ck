@@ -62,17 +62,19 @@ def download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity):
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, None, None, verbosity)
 
 def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity):
+    # WARNING: Download bib file first, since downloading the PDF first will fail this function when the website is behind a pay-wall.
+    if biburl is not None:
+        data = get_url(opener, biburl, verbosity, user_agent)
+
+        with open(destbibfile, 'wb') as output:
+            output.write(data)
+
     if pdfurl is not None:
         data = get_url(opener, pdfurl, verbosity, user_agent)
 
         with open(destpdffile, 'wb') as output:
             output.write(data)
 
-    if biburl is not None:
-        data = get_url(opener, biburl, verbosity, user_agent)
-
-        with open(destbibfile, 'wb') as output:
-            output.write(data)
 
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
@@ -85,8 +87,6 @@ def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile
         print("ACM DL paper ID:", paper_id)
     # first, we scrape the PDF link
     elem = soup.find('a', attrs={"name": "FullTextPDF"})
-
-    # then, we download the PDF
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     pdfurl = url_prefix + '/'  + elem.get('href')
 
@@ -191,6 +191,7 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
 
     tmpbibf = tempfile.NamedTemporaryFile(delete=True)
     tmpbibfile = tmpbibf.name
+    # TODO: when PDF fails, saving bib file will fail too. fix this.
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, tmpbibfile, verbosity)
 
     # clean the .bib file, which IEEExplore kindly serves with <br>'s in it
