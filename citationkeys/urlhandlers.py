@@ -76,7 +76,7 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
             output.write(data)
 
 
-def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
 
     # sometimes the URL might have ?doid=<parentid>.<id> rather than just ?doid=<id>
@@ -104,7 +104,7 @@ def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile
 
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     # let's accept links in both formats
     #  - https://eprint.iacr.org/2015/525.pdf
     #  - https://eprint.iacr.org/2015/525
@@ -126,7 +126,7 @@ def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     with open(destbibfile, 'wb') as output:
         output.write(bibtex.encode('utf-8'))
 
-def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
     paper_id = path[len('chapter/'):]
@@ -144,7 +144,7 @@ def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, dest
 
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
 
@@ -164,7 +164,7 @@ def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbib
 
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
-def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity):
+def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
 

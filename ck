@@ -175,6 +175,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     #print("Time:", nowstr)
     
     # Make sure paper doesn't exist in the library first
+    # TODO: save to temp file, so you can first display abstract with author names and prompt the user for the "Citation Key" rather than giving it as an arg
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
@@ -220,7 +221,9 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
             soup = BeautifulSoup(index_html, parser)
 
         handler = handlers[domain]
-        handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, citation_key, parser, user_agent, verbosity)
+        # TODO: display abstract
+        # TODO: if no CK specified, prompt the user for one
+        handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
     else:
         print("ERROR: Cannot handle URLs from", domain, "yet.")
         sys.exit(1)
