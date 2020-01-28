@@ -540,6 +540,59 @@ def ck_search_cmd(ctx, query, case_sensitive):
     if matched is False:
         print("No matches!")
 
+@ck.command('cleanbib')
+@click.pass_context
+def ck_cleanbib_cmd(ctx):
+    """Command to clean up the .bib files a little. (Temporary, until I write something better.)"""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['ck_tag_dir']))
+
+    cks = list_cks(ck_bib_dir)
+
+    for ck in cks:
+        bibfile = os.path.join(ck_bib_dir, ck + ".bib")
+        if verbosity > 1:
+            print("Parsing BibTeX for " + ck)
+        try:
+            with open(bibfile) as bibf:
+                bibtex = bibtexparser.load(bibf)
+
+            bib = bibtex.entries[0]
+            updated=False
+
+            # make sure the CK in the .bib matches the filename
+            bck = bib['ID']
+            if bck != ck:
+                print(ck + ": Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "'). Fixing...")
+                bib['ID'] = ck
+
+            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
+            title  = bib['title'].strip()
+
+            if verbosity > 0:
+                print(ck + ": " + title)
+
+            if title[0] != "{" and title[len(title)-1] != "}":
+                title = "{" + title + "}"
+                print(ck + ": Changed title w/o brackets: " + title)
+                updated=True
+
+            bibtex.entries[0]['author'] = author
+            bibtex.entries[0]['title'] = title
+
+            if updated:
+                bibwriter = BibTexWriter()
+                with open(bibfile, 'w') as bibf:
+                    bibf.write(bibwriter.write(bibtex))
+
+        except FileNotFoundError:
+            print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
+        except:
+            print(ck + ":", "Unexpected error:", sys.exc_info()[0])
+
 @ck.command('list')
 @click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
 @click.pass_context
@@ -600,10 +653,12 @@ def ck_list_cmd(ctx, directory):
             title  = bib['title']
             year   = bib['year']
 
-            print(ck + ": \"" + title + "\" by " + author + ", " + year)
+            print(ck + ": " + title + " by " + author + ", " + year)
 
+        except FileNotFoundError:
+            print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
         except:
-            print(ck + ": -- missing BibTeX in " + ck_bib_dir + " --")
+            print(ck + ":", "Unexpected error:", sys.exc_info()[0])
 
     print()
     print(str(len(cks)) + " PDFs in " + paper_dir)
