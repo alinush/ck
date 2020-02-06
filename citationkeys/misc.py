@@ -89,8 +89,8 @@ def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
     tagged_pdfs = find_tagged_pdfs(ck_tag_dir, verbosity)
     untagged = set()
 
-    if verbosity > 1:
-        print("Tagged papers:", tagged_pdfs)
+    if verbosity > 0:
+        print("Tagged papers:", sorted(tagged_pdfs))
 
     cks = list_cks(ck_bib_dir)
     for ck in cks:

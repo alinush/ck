@@ -111,7 +111,7 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
             filepath = os.path.join(ck_bib_dir, ck + ext)
 
             if verbosity > 1:
-                print("Checking", relpath)
+                print("Checking", filepath)
 
             counterpart = os.path.join(ck_bib_dir, ck + counterpart_ext[ext])
 
@@ -292,7 +292,7 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
         if len(untagged_pdfs) > 0:
             sys.stdout.write("Untagged papers: ")
             first_iter = True
-            for (filepath, citation_key) in untagged_pdfs:
+            for (filepath, citation_key) in sorted(untagged_pdfs):
                 if not first_iter:
                     sys.stdout.write(", ")
                 sys.stdout.write(citation_key)
