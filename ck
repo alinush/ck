@@ -22,6 +22,7 @@ import os
 import pyperclip
 import subprocess
 import sys
+import traceback
 import urllib
 
 class AliasedGroup(click.Group):
@@ -161,7 +162,7 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
 def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     """Adds the paper to the library (.pdf and .bib file)."""
 
-    # TODO: come up with CK automatically if not specified & make sure it's unique (unclear how handle eprint version of the same paper)
+    # TODO: come up with CK automatically if not specified & make sure it's unique (unclear how to handle eprint version of the same paper)
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -244,6 +245,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
 
         bibwriter = BibTexWriter()
         with open(destbibfile, 'w') as bibf:
+            canonicalize_bibtex(citation_key, bibtex, verbosity)
             bibf.write(bibwriter.write(bibtex))
 
     if not no_tag_prompt:
@@ -429,6 +431,7 @@ def ck_open_cmd(ctx, filename):
                     # write back the .bib file
                     bibwriter = BibTexWriter()
                     with open(fullpath, 'w') as bibf:
+                        canonicalize_bibtex(basename, bibtex, verbosity)
                         bibf.write(bibwriter.write(bibtex))
 
     elif extension.lower() == '.md':
@@ -558,40 +561,27 @@ def ck_cleanbib_cmd(ctx):
             print("Parsing BibTeX for " + ck)
         try:
             with open(bibfile) as bibf:
-                bibtex = bibtexparser.load(bibf)
+                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+                bibtex = bibtexparser.load(bibf, parser)
 
-            bib = bibtex.entries[0]
-            updated=False
-
-            # make sure the CK in the .bib matches the filename
-            bck = bib['ID']
-            if bck != ck:
-                print(ck + ": Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "'). Fixing...")
-                bib['ID'] = ck
-
-            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
-            title  = bib['title'].strip()
-
-            if verbosity > 0:
-                print(ck + ": " + title)
-
-            if title[0] != "{" and title[len(title)-1] != "}":
-                title = "{" + title + "}"
-                print(ck + ": Changed title w/o brackets: " + title)
-                updated=True
-
-            bibtex.entries[0]['author'] = author
-            bibtex.entries[0]['title'] = title
+            assert len(bibtex.entries) == 1
+            assert type(ck) == str
+            updated = canonicalize_bibtex(ck, bibtex, verbosity)
 
             if updated:
+                print("Updating " + bibfile)
                 bibwriter = BibTexWriter()
                 with open(bibfile, 'w') as bibf:
                     bibf.write(bibwriter.write(bibtex))
+            else:
+                if verbosity > 0:
+                    print("Nothing to update in " + bibfile)
 
         except FileNotFoundError:
             print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
         except:
-            print(ck + ":", "Unexpected error:", sys.exc_info()[0])
+            print(ck + ":", "Unexpected error") 
+            traceback.print_exc()
 
 @ck.command('list')
 @click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
@@ -637,7 +627,8 @@ def ck_list_cmd(ctx, directory):
 
         try:
             with open(bibfile) as bibf:
-                bibtex = bibtexparser.load(bibf)
+                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+                bibtex = bibtexparser.load(bibf, parser)
 
             #print(bibtex.entries)
             #print("Comments: ")
@@ -658,7 +649,8 @@ def ck_list_cmd(ctx, directory):
         except FileNotFoundError:
             print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
         except:
-            print(ck + ":", "Unexpected error:", sys.exc_info()[0])
+            print(ck + ":", "Unexpected error")
+            traceback.print_exc()
 
     print()
     print(str(len(cks)) + " PDFs in " + paper_dir)

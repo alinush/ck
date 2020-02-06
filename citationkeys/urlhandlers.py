@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
-from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText

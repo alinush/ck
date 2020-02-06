@@ -151,3 +151,38 @@ def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
 
     pdfname = citation_key + ".pdf"
     os.symlink(os.path.join(ck_bib_dir, pdfname), os.path.join(pdf_tag_dir, pdfname))
+
+def canonicalize_bibtex(ck, bibtex, verbosity):
+    assert len(bibtex.entries) == 1
+    updated = False
+
+    for i in range(len(bibtex.entries)):
+        bib = bibtex.entries[i]
+
+        # make sure the CK in the .bib matches the filename
+        bck = bib['ID']
+        if bck != ck:
+            if verbosity > 1:
+                print(ck + ": Replaced unexpected '" + bck + "' CK in .bib file. Fixing...")
+            bib['ID'] = ck
+            updated = True
+
+        author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
+        if bib['author'] != author:
+            if verbosity > 1:
+                print(ck + ": Stripped author name(s): " + author)
+            bib['author'] = author
+            updated = True
+
+        title  = bib['title'].strip()
+        if title[0] != "{" and title[len(title)-1] != "}":
+            title = "{" + title + "}"
+        if bib['title'] != title:
+            if verbosity > 1:
+                print(ck + ": Added brackets to title: " + title)
+            bib['title'] = title
+            updated = True
+
+    assert type(bib['ID']) == str
+
+    return updated
