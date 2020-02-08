@@ -69,6 +69,11 @@ TODOs
     - `open` subcommand
         - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
     - `list` subcommand
+        - display associated file info
+            - nopdf
+            - nobib
+            - md
+            - any other files (e.g., ABC19.slides.pdf)
         - color highlight
         - add sort-by options
             - need sort by most recently added (with date & time displayed)
