@@ -455,11 +455,17 @@ def ck_open_cmd(ctx, filename):
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.option(
     '--clipboard/--no-clipboard',
-    default=False,
+    default=True,
     help='To (not) copy the BibTeX to clipboard.'
     )
+@click.option(
+    '-m', '--markdown',
+    is_flag=True,
+    default=False,
+    help='Output as a Markdown citation'
+    )
 @click.pass_context
-def ck_bib_cmd(ctx, citation_key, clipboard):
+def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
     """Prints the paper's BibTeX and copies it to the clipboard."""
 
     ctx.ensure_object(dict)
@@ -475,16 +481,44 @@ def ck_bib_cmd(ctx, citation_key, clipboard):
 
         sys.exit(1)
 
-    bibtex = file_to_string(path).strip()
-    print()
-    print("BibTeX for '%s'" % path)
-    print()
-    print(bibtex)
-    print()
-    if clipboard:
-        pyperclip.copy(bibtex)
-        print("Copied to clipboard!")
+    if markdown == False:
         print()
+        print("BibTeX for '%s'" % path)
+        print()
+        bibtex = file_to_string(path).strip()
+        to_copy = bibtex
+        print()
+    else:
+        try:
+            with open(path) as bibf:
+                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+                bibtex = bibtexparser.load(bibf, parser)
+
+            assert len(bibtex.entries) == 1
+        except FileNotFoundError:
+            print(citation_key + ":", "Missing BibTeX file in directory", ck_bib_dir)
+        except:
+            print(citation_key + ":", "Unexpected error")
+
+        # TODO: check if it has a URL
+        bib = bibtex.entries[0]
+        title = bib['title'].strip("{}")
+        authors = bib['author']
+        citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
+        to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
+
+        venue = bib['booktitle'] if 'booktitle' in bib else None
+        if venue != None:
+            to_copy = to_copy + ", *in " + venue + "*"
+
+        year = bib['year']
+        to_copy = to_copy +  ", " + year
+
+    print(to_copy)
+
+    if clipboard:
+        pyperclip.copy(to_copy)
+        click.echo("\nCopied to clipboard!\n")
 
 @ck.command('rename')
 @click.argument('old_citation_key', required=True, type=click.STRING)
@@ -507,6 +541,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
 @click.argument('query', required=True, type=click.STRING)
 @click.option(
     '-c', '--case-sensitive',
+    is_flag=True,
     default=False,
     help='Enables case-sensitive search.'
     )
