@@ -507,7 +507,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
         to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
 
-        venue = bib['booktitle'] if 'booktitle' in bib else None
+        venue = bib['booktitle'] if 'booktitle' in bib else bib['howpublished'] if 'howpublished' in bib else None
         if venue != None:
             to_copy = to_copy + ", *in " + venue + "*"
 
