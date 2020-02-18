@@ -5,6 +5,7 @@ from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
 from citationkeys.misc import *
 from citationkeys.urlhandlers import *
+from datetime import datetime
 from fake_useragent import UserAgent
 from http.cookiejar import CookieJar
 from pprint import pprint
@@ -17,7 +18,6 @@ import bibtexparser
 import bs4
 import click
 import configparser
-import datetime
 import os
 import pyperclip
 import subprocess
@@ -171,7 +171,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     if verbosity > 0:
         print("Verbosity:", verbosity)
 
-    now = datetime.datetime.now()
+    now = datetime.now()
     nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
     #print("Time:", nowstr)
     
@@ -421,7 +421,7 @@ def ck_open_cmd(ctx, filename):
                 bibtex = bibtexparser.load(bibf, parser)
 
             if 'ckdateadded' not in bibtex.entries[0]:
-                now = datetime.datetime.now()
+                now = datetime.now()
                 nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
 
                 if confirm_user("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
@@ -695,7 +695,7 @@ def ck_list_cmd(ctx, pathnames):
                 print("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n")
 
             author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
-            title  = bib['title']
+            title  = bib['title'].strip("{}")
             year   = bib['year']
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
 
@@ -710,10 +710,21 @@ def ck_list_cmd(ctx, pathnames):
     sorted_cks = sorted(sorted_cks, key=lambda item: item[4])
 
     for (ck, author, title, year, date) in sorted_cks:
+        click.echo(click.style(ck, fg='blue'), nl=False)
+        click.echo(", ", nl=False)
+        click.echo(click.style(title, fg='green'), nl=False)
+        click.echo(", ", nl=False)
+        click.echo(click.style(year,fg='red', bold=True), nl=False)
+        click.echo(", ", nl=False)
+        click.echo(author, nl=False)
         if date:
-            date = ' (added ' + date + ')'
+            date = datetime.strftime(datetime.strptime(date, "%Y-%m-%d %H:%M:%S"), "%B %-d, %Y")
+            click.echo(', (', nl=False)
+            click.echo(click.style(date, fg='magenta'), nl=False)
+            click.echo(')', nl=False)
+        click.echo()
 
-        print(ck + ": " + title + " by " + author + ", " + year + date)
+        #print(ck + ": " + title + " by " + author + ", " + year + date)
 
     print()
     print(str(len(cks)) + " PDFs listed")
