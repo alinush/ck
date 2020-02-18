@@ -627,9 +627,10 @@ def ck_cleanbib_cmd(ctx):
             traceback.print_exc()
 
 @ck.command('list')
-@click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
+#@click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
+@click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
 @click.pass_context
-def ck_list_cmd(ctx, directory):
+def ck_list_cmd(ctx, pathnames):
     """Lists all citation keys in the library"""
 
     ctx.ensure_object(dict)
@@ -637,17 +638,26 @@ def ck_list_cmd(ctx, directory):
     ck_bib_dir = ctx.obj['ck_bib_dir']
     ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['ck_tag_dir']))
 
-    if directory is not None:
-        paper_dir = str(directory)
+    if len(pathnames) > 0:
+        cks = set()
+        for path in pathnames:
+            if os.path.isdir(path):
+                cks.update(list_cks(path))
+            else:
+                filename = os.path.basename(path)
+                ck, ext = os.path.splitext(filename)
+                cks.add(ck)
     else:
+        # When listing with 'ck l', we have to figure out if the CWD is somewhere in the tagdir
+        # and if so, only list the CKs there. Otherwise, we list all CKs in the bibdir.
         cwd = os.path.normpath(os.getcwd())
         common_prefix = os.path.commonpath([ck_tag_dir, cwd])
         is_in_tag_dir = (common_prefix == ck_tag_dir)
 
         if verbosity > 0:
-            print("Current working directory: ", cwd) 
-            print("Tag directory:             ", ck_tag_dir) 
-            print("Is in tag dir? ", is_in_tag_dir)
+            print("CWD:               ", cwd) 
+            print("Tag dir:           ", ck_tag_dir) 
+            print("Is CWD in tag dir? ", is_in_tag_dir)
             print()
 
         if is_in_tag_dir:
@@ -655,12 +665,12 @@ def ck_list_cmd(ctx, directory):
         else:
             paper_dir=ck_bib_dir
 
-    if verbosity > 0:
-        print("Looking in directory: ", paper_dir) 
+        # TODO: list_cks could return a dict() mapping the tag name to the CK(s)?
+        # Then, we can list the papers by tags below.
+        cks = list_cks(paper_dir)
 
-    # TODO: Might want to support subdirectories, so this should be a dict() with the subdirectory as a key.
-    # Then, we can list the papers by subdirectory below.
-    cks = list_cks(paper_dir)
+    if verbosity > 0:
+        print(cks)
 
     for ck in cks:
         # TODO: Take flags that decide what to print. For now, "title, authors, year"
@@ -696,7 +706,7 @@ def ck_list_cmd(ctx, directory):
             traceback.print_exc()
 
     print()
-    print(str(len(cks)) + " PDFs in " + paper_dir)
+    print(str(len(cks)) + " PDFs listed")
 
     # TODO: query could be a space-separated list of tokens
     # a token can be a hashtag (e.g., #dkg-dlog) or a sorting token (e.g., 'year')
