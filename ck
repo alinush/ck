@@ -672,6 +672,7 @@ def ck_list_cmd(ctx, pathnames):
     if verbosity > 0:
         print(cks)
 
+    sorted_cks = []
     for ck in cks:
         # TODO: Take flags that decide what to print. For now, "title, authors, year"
         bibfile = os.path.join(ck_bib_dir, ck + ".bib")
@@ -696,14 +697,23 @@ def ck_list_cmd(ctx, pathnames):
             author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
             title  = bib['title']
             year   = bib['year']
+            date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
 
-            print(ck + ": " + title + " by " + author + ", " + year)
+            sorted_cks.append((ck, author, title, year, date))
 
         except FileNotFoundError:
             print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
         except:
             print(ck + ":", "Unexpected error")
             traceback.print_exc()
+
+    sorted_cks = sorted(sorted_cks, key=lambda item: item[4])
+
+    for (ck, author, title, year, date) in sorted_cks:
+        if date:
+            date = ' (added ' + date + ')'
+
+        print(ck + ": " + title + " by " + author + ", " + year + date)
 
     print()
     print(str(len(cks)) + " PDFs listed")
