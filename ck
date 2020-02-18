@@ -90,12 +90,19 @@ def ck(ctx, config_file, verbose):
 
     # always do a sanity check before invoking the actual subcommand
     # TODO: figure out how to call this *after* (not before) the subcommand is invoked, so the user can actually see its output
-    ck_check(ctx.obj['ck_bib_dir'], ctx.obj['ck_tag_dir'], verbose)
+    #ck_check(ctx.obj['ck_bib_dir'], ctx.obj['ck_tag_dir'], verbose)
 
 @ck.command('check')
 @click.pass_context
 def ck_check_cmd(ctx):
     """Checks the BibDir and TagDir for integrity."""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    ck_check(ck_bib_dir, ck_tag_dir, verbosity)
 
 def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # find PDFs without bib files (and viceversa)
@@ -131,7 +138,7 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
         if len(missing[ext]) > 0:
             print()
         
-    # make sure all .pdf extensions are lowercase in tagdir
+    # make sure all .pdf extensions are lowercase in TagDir
     for relpath in os.listdir(ck_tag_dir):
         filepath = os.path.join(ck_tag_dir, relpath)
         ck, extOrig = os.path.splitext(relpath)
@@ -140,7 +147,7 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
         if ext != extOrig:
             print("WARNING:", filepath, "has uppercase", "." + extOrig, "extension in TagDir")
     
-    # TODO: make sure symlinks are not broken in tagdir
+    # TODO: make sure symlinks are not broken in TagDir
     # TODO: make sure all .bib files have the right CK and have ckdateadded
 
 @ck.command('add')
@@ -265,6 +272,67 @@ def ck_config_cmd(ctx):
     if os.path.exists(fullpath):
         print(file_to_string(fullpath).strip())
 
+@ck.command('queue')
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_queue_cmd(ctx, citation_key):
+    """Marks this paper as 'to-be-read', removing the 'queue/reading' and/or 'queue/finished' tags"""
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    if citation_key is not None:
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/to-read")
+        untag_paper(ck_tag_dir, citation_key, "queue/reading")
+        untag_paper(ck_tag_dir, citation_key, "queue/finished")
+    else:
+        click.echo(click.style("Papers that remain to be read:", bold=True))
+        click.echo()
+
+        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/to-read')])
+
+@ck.command('read')
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_read_cmd(ctx, citation_key):
+    """Marks this paper as in the process of 'reading', removing the 'queue/to-read' and/or 'queue/finished' tags"""
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    if citation_key is not None:
+        untag_paper(ck_tag_dir, citation_key, "queue/to-read")
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/reading")
+        untag_paper(ck_tag_dir, citation_key, "queue/finished")
+        ctx.invoke(ck_open_cmd, filename=citation_key + ".pdf")
+    else:
+        click.echo(click.style("Papers you are currently reading:", bold=True))
+        click.echo()
+
+        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/reading')])
+
+@ck.command('finish')
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_finish_cmd(ctx, citation_key):
+    """Marks this paper as 'finished reading', removing the 'queue/to-read' and/or 'queue/reading' tags"""
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    if citation_key is not None:
+        untag_paper(ck_tag_dir, citation_key, "queue/to-read")
+        untag_paper(ck_tag_dir, citation_key, "queue/reading")
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/finished")
+    else:
+        click.echo(click.style("Papers you have finished reading:", bold=True))
+        click.echo()
+
+        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/finished')])
+
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tag', required=False, type=click.STRING)
@@ -373,7 +441,7 @@ def ck_rm_cmd(ctx, force, citation_key):
             else:
                 print("WARNING:", f, "does not exist, nothing to delete...")
 
-        # TODO: what to do about tagdir symlinks?
+        # TODO: what to do about TagDir symlinks?
     else:
         print(citation_key, "is not in library. Nothing to delete.")
 
@@ -648,8 +716,8 @@ def ck_list_cmd(ctx, pathnames):
                 ck, ext = os.path.splitext(filename)
                 cks.add(ck)
     else:
-        # When listing with 'ck l', we have to figure out if the CWD is somewhere in the tagdir
-        # and if so, only list the CKs there. Otherwise, we list all CKs in the bibdir.
+        # When listing with 'ck l', we have to figure out if the CWD is somewhere in the TagDir
+        # and if so, only list the CKs there. Otherwise, we list all CKs in the BibDir.
         cwd = os.path.normpath(os.getcwd())
         common_prefix = os.path.commonpath([ck_tag_dir, cwd])
         is_in_tag_dir = (common_prefix == ck_tag_dir)

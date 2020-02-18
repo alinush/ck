@@ -142,6 +142,11 @@ def prompt_for_tags(prompt):
     tags = filter(lambda t: len(t) > 0, tags)
     return tags
 
+def untag_paper(ck_tag_dir, citation_key, tag):
+    filepath = os.path.join(ck_tag_dir, tag, citation_key + ".pdf")
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
 def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
     print("Tagging", citation_key, "with tag", tag, "...")
 
