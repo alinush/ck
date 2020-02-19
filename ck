@@ -333,6 +333,25 @@ def ck_finish_cmd(ctx, citation_key):
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/finished')])
 
+@ck.command('untag')
+@click.argument('citation_key', required=True, type=click.STRING)
+@click.argument('tags', required=True, type=click.STRING)
+@click.pass_context
+def ck_untag_cmd(ctx, citation_key, tags):
+    """Untags the specified paper."""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
+
+    tags = parse_tags(tags)
+    for tag in tags:
+        if untag_paper(ck_tag_dir, citation_key, tag):
+            click.echo(click.style("Removed '" + tag + "' tag", fg="green")) 
+        else:
+            click.echo(click.style("ERROR: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red"), err=True) 
+
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tag', required=False, type=click.STRING)

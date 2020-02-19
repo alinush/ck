@@ -134,18 +134,23 @@ def print_tags(ck_tag_dir):
     #    print(t)
     print()
 
-def prompt_for_tags(prompt):
-    tags_str = prompt_user(prompt)
-    tags = tags_str.split(',')
-
+def parse_tags(tags):
+    tags = tags.split(',')
     tags = [t.strip() for t in tags]
     tags = filter(lambda t: len(t) > 0, tags)
     return tags
+
+def prompt_for_tags(prompt):
+    tags_str = prompt_user(prompt)
+    return parse_tags(tags_str)
 
 def untag_paper(ck_tag_dir, citation_key, tag):
     filepath = os.path.join(ck_tag_dir, tag, citation_key + ".pdf")
     if os.path.exists(filepath):
         os.remove(filepath)
+        return True
+    else:
+        return False
 
 def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
     print("Tagging", citation_key, "with tag", tag, "...")
