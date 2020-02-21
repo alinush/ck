@@ -284,8 +284,7 @@ def ck_queue_cmd(ctx, citation_key):
 
     if citation_key is not None:
         ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/to-read")
-        untag_paper(ck_tag_dir, citation_key, "queue/reading")
-        untag_paper(ck_tag_dir, citation_key, "queue/finished")
+        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/finished,queue/reading")
     else:
         click.echo(click.style("Papers that remain to be read:", bold=True))
         click.echo()
@@ -303,9 +302,8 @@ def ck_read_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['ck_tag_dir']
 
     if citation_key is not None:
-        untag_paper(ck_tag_dir, citation_key, "queue/to-read")
+        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/finished")
         ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/reading")
-        untag_paper(ck_tag_dir, citation_key, "queue/finished")
         ctx.invoke(ck_open_cmd, filename=citation_key + ".pdf")
     else:
         click.echo(click.style("Papers you are currently reading:", bold=True))
@@ -313,10 +311,10 @@ def ck_read_cmd(ctx, citation_key):
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/reading')])
 
-@ck.command('finish')
+@ck.command('finished')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.pass_context
-def ck_finish_cmd(ctx, citation_key):
+def ck_finished_cmd(ctx, citation_key):
     """Marks this paper as 'finished reading', removing the 'queue/to-read' and/or 'queue/reading' tags"""
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -324,8 +322,7 @@ def ck_finish_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['ck_tag_dir']
 
     if citation_key is not None:
-        untag_paper(ck_tag_dir, citation_key, "queue/to-read")
-        untag_paper(ck_tag_dir, citation_key, "queue/reading")
+        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/reading")
         ctx.invoke(ck_tag_cmd, citation_key=citation_key, tag="queue/finished")
     else:
         click.echo(click.style("Papers you have finished reading:", bold=True))
@@ -350,7 +347,8 @@ def ck_untag_cmd(ctx, citation_key, tags):
         if untag_paper(ck_tag_dir, citation_key, tag):
             click.echo(click.style("Removed '" + tag + "' tag", fg="green")) 
         else:
-            click.echo(click.style("ERROR: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red"), err=True) 
+            if verbosity > 0:
+                click.echo(click.style("WARNING: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red"), err=True) 
 
 @ck.command('tag')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -416,7 +414,10 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
             tags = [ tag ]
 
         for tag in tags:
-            tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+            if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
+                click.echo(click.style("Added '" + tag + "' tag", fg="green")) 
+            else:
+                click.echo(click.style("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red"), err=True) 
 
 @ck.command('rm')
 @click.option(

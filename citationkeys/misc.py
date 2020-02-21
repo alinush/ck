@@ -6,6 +6,7 @@ from pprint import pprint
 # NOTE: Alphabetical order please
 import os
 import sys
+import traceback
 
 def get_terminal_width():
     rows, columns = os.popen('stty size', 'r').read().split()
@@ -153,14 +154,19 @@ def untag_paper(ck_tag_dir, citation_key, tag):
         return False
 
 def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
-    print("Tagging", citation_key, "with tag", tag, "...")
-
     pdf_tag_dir = os.path.join(ck_tag_dir, tag)
-    # TODO: if dir doesn't exist, prompt user to create it, unless --yes option is passed
     os.makedirs(pdf_tag_dir, exist_ok=True)
 
     pdfname = citation_key + ".pdf"
-    os.symlink(os.path.join(ck_bib_dir, pdfname), os.path.join(pdf_tag_dir, pdfname))
+    try:
+        os.symlink(os.path.join(ck_bib_dir, pdfname), os.path.join(pdf_tag_dir, pdfname))
+        return True
+    except FileExistsError:
+        return False
+    except:
+        print("Unexpected error while tagging " + citation_key + " with '" + tag) 
+        traceback.print_exc()
+        raise
 
 def canonicalize_bibtex(ck, bibtex, verbosity):
     assert len(bibtex.entries) == 1
