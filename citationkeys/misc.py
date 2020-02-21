@@ -64,34 +64,40 @@ def list_cks(ck_bib_dir):
             if ext.lower() == ".pdf" or ext.lower() == ".bib":
                 cks.add(ck)
 
-    return sorted(cks);
+    return sorted(cks)
 
+# returns a map of CK to its list of tags
 def find_tagged_pdfs(ck_tag_subdir, verbosity):
-    tagged_pdfs = set()
-    for relpath in os.listdir(ck_tag_subdir):
-        fullpath = os.path.join(ck_tag_subdir, relpath)
-        citation_key, extension = os.path.splitext(relpath)
-        #filename = os.path.basename(filepath)
+    pdfs = dict()
+    find_tagged_pdfs_helper(ck_tag_subdir, ck_tag_subdir, pdfs, verbosity)
+    return pdfs
+
+def find_tagged_pdfs_helper(root_tag_dir, tag_subdir, pdfs, verbosity):
+    for relpath in os.listdir(tag_subdir):
+        fullpath = os.path.join(tag_subdir, relpath)
 
         if os.path.isdir(fullpath):
-            tagged_pdfs.update(find_tagged_pdfs(fullpath, verbosity))
+            find_tagged_pdfs_helper(root_tag_dir, fullpath, pdfs, verbosity)
         elif os.path.islink(fullpath):
-            if verbosity > 1:
-                print("Symlink:", fullpath)
-            if extension.lower() == ".pdf":
-                realpath = os.readlink(fullpath)
-                if verbosity > 1:
-                    print(' \->', realpath)
-                tagged_pdfs.add(realpath)
+            citation_key, extension = os.path.splitext(relpath)
+            tagname = os.path.relpath(os.path.dirname(fullpath), root_tag_dir)
 
-    return tagged_pdfs
+            if verbosity > 1:
+                print("CK:", citation_key)
+                print("Tagname:", tagname)
+                print("Symlink:", fullpath)
+
+            if extension.lower() == ".pdf":
+                if citation_key not in pdfs:
+                    pdfs[citation_key] = []
+                pdfs[citation_key].append(tagname)
 
 def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
-    tagged_pdfs = find_tagged_pdfs(ck_tag_dir, verbosity)
+    tagged_cks = find_tagged_pdfs(ck_tag_dir, verbosity).keys()
     untagged = set()
 
-    if verbosity > 0:
-        print("Tagged papers:", sorted(tagged_pdfs))
+    if verbosity > 2:
+        print("Tagged papers:", sorted(tagged_cks))
 
     cks = list_cks(ck_bib_dir)
     for ck in cks:
@@ -99,7 +105,7 @@ def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
         #filename = os.path.basename(filepath)
 
         if os.path.exists(filepath):
-            if filepath not in tagged_pdfs:
+            if ck not in tagged_cks:
                 untagged.add((filepath, ck))
 
     return untagged
@@ -126,14 +132,21 @@ def get_tags(tagdir, prefix=''):
 
     return sorted(tags)
 
-def print_tags(ck_tag_dir):
-    sys.stdout.write("Tags: ")
-    tags = get_tags(ck_tag_dir)
-    print(tags);
+def print_tags(ck_tag_dir, ck):
+    if ck is None:
+        tags = get_tags(ck_tag_dir)
+    else:
+        pdfs = find_tagged_pdfs(ck_tag_dir, 0)
+        if ck in pdfs:
+            tags = pdfs[ck]
+        else:
+            tags = []
+
     # TODO: pretty print. get width using get_terminal_width
+    sys.stdout.write("Tags: ")
+    print(tags)
     #for t in tags: 
     #    print(t)
-    print()
 
 def parse_tags(tags):
     tags = tags.split(',')

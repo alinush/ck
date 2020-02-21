@@ -265,10 +265,10 @@ def ck_config_cmd(ctx):
     """Lets you edit the config file and prints it at the end."""
 
     ctx.ensure_object(dict)
-    ck_text_editor = ctx.obj['ck_text_editor'];
+    ck_text_editor = ctx.obj['ck_text_editor']
 
     fullpath = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
-    os.system(ck_text_editor + " \"" + fullpath + "\"");
+    os.system(ck_text_editor + " \"" + fullpath + "\"")
     if os.path.exists(fullpath):
         print(file_to_string(fullpath).strip())
 
@@ -357,7 +357,7 @@ def ck_untag_cmd(ctx, citation_key, tags):
     '-l', '--list', 'list_opt',
     default=False,
     is_flag=True,
-    help='Lists all the tags in the library.')
+    help='Lists the tags of the specified CK or the full library if no CK is given.')
 @click.pass_context
 def ck_tag_cmd(ctx, citation_key, tag, list_opt):
     """Tags the specified paper."""
@@ -368,9 +368,10 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
     ck_tag_dir = ctx.obj['ck_tag_dir']
 
     if list_opt is True:
-        print_tags(ck_tag_dir)
+        print_tags(ck_tag_dir, citation_key)
         sys.exit(0)
 
+    # TODO: move to 'ck untagged'
     if citation_key is None:
         # If no paper was specified, detects untagged papers and asks the user to tag them.
         assert tag is None
@@ -394,7 +395,7 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
         for (filepath, citation_key) in untagged_pdfs:
             ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
-            print_tags(ck_tag_dir)
+            print_tags(ck_tag_dir, None)
             tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
             for tag in tags:
                 tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
@@ -408,7 +409,7 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
             ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
             # get tag from command line
-            print_tags(ck_tag_dir)
+            print_tags(ck_tag_dir, None)
             tags = prompt_for_tags("Please enter tag(s): ")
         else:
             tags = [ tag ]
@@ -417,7 +418,7 @@ def ck_tag_cmd(ctx, citation_key, tag, list_opt):
             if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
                 click.echo(click.style("Added '" + tag + "' tag", fg="green")) 
             else:
-                click.echo(click.style("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red"), err=True) 
+                click.echo(click.style("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red"), err=True)
 
 @ck.command('rm')
 @click.option(
@@ -474,8 +475,8 @@ def ck_open_cmd(ctx, filename):
     ctx.ensure_object(dict)
     verbosity      = ctx.obj['verbosity']
     ck_bib_dir     = ctx.obj['ck_bib_dir']
-    ck_open        = ctx.obj['ck_open'];
-    ck_text_editor = ctx.obj['ck_text_editor'];
+    ck_open        = ctx.obj['ck_open']
+    ck_text_editor = ctx.obj['ck_text_editor']
 
     basename, extension = os.path.splitext(filename)
 
@@ -495,10 +496,10 @@ def ck_open_cmd(ctx, filename):
             [ck_open, fullpath],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-        );
+        )
         # TODO: check for failure in completed.returncode
     elif extension.lower() == '.bib':
-        os.system(ck_text_editor + " " + fullpath);
+        os.system(ck_text_editor + " " + fullpath)
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
 
@@ -534,7 +535,7 @@ def ck_open_cmd(ctx, filename):
             [ck_open, fullpath],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-        );
+        )
     else:
         print("ERROR:", extension.lower(), "extension is not supported")
         sys.exit(1)
