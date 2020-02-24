@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from datetime import datetime
 from pprint import pprint
 
 # NOTE: Alphabetical order please
+import bibtexparser
 import click
 import os
 import sys
@@ -45,6 +47,64 @@ def ck_to_pdf(ck_bib_dir, ck):
 
 def ck_to_bib(ck_bib_dir, ck):
     return os.path.join(ck_bib_dir, ck + ".bib")
+
+# TODO: Take flags that decide what to print. For now, "title, authors, year"
+def cks_to_tuples(ck_bib_dir, cks, verbosity):
+    ck_tuples = []
+
+    for ck in cks:
+        bibfile = os.path.join(ck_bib_dir, ck + ".bib")
+        if verbosity > 1:
+            click.echo("Parsing BibTeX for " + ck)
+
+        try:
+            with open(bibfile) as bibf:
+                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+                bibtex = bibtexparser.load(bibf, parser)
+
+            #print(bibtex.entries)
+            #print("Comments: ")
+            #print(bibtex.comments)
+            bib = bibtex.entries[0]
+
+            # make sure the CK in the .bib matches the filename
+            bck = bib['ID']
+            if bck != ck:
+                click.echo("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n", err=True)
+
+            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
+            title  = bib['title'].strip("{}")
+            year   = bib['year']
+            date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
+
+            ck_tuples.append((ck, author, title, year, date))
+
+        except FileNotFoundError:
+            click.secho(ck + ": Missing BibTeX file in directory " + ck_bib_dir, fg="red", err=True)
+        except:
+            click.secho(ck + ": Unexpected error", fg="red", err=True)
+            traceback.print_exc()
+            raise
+
+    return ck_tuples
+
+def print_ck_tuples(cks):
+    for (ck, author, title, year, date) in cks:
+        click.secho(ck, fg='blue', nl=False)
+        click.echo(", ", nl=False)
+        click.secho(title, fg='green', nl=False)
+        click.echo(", ", nl=False)
+        click.secho(year,fg='red', bold=True, nl=False)
+        click.echo(", ", nl=False)
+        click.echo(author, nl=False)
+        if date:
+            date = datetime.strftime(datetime.strptime(date, "%Y-%m-%d %H:%M:%S"), "%B %-d, %Y")
+            click.echo(', (', nl=False)
+            click.secho(date, fg='magenta', nl=False)
+            click.echo(')', nl=False)
+        click.echo()
+
+        #print(ck + ": " + title + " by " + author + ", " + year + date)
 
 # NOTE: This can be called on the bibdir or on the tagdir and it proceeds recursively
 def list_cks(ck_bib_dir):
@@ -111,7 +171,7 @@ def find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity):
 
     return untagged
 
-def get_tags(tagdir, prefix=''):
+def get_all_tags(tagdir, prefix=''):
     tags = []
 
     for tagname in os.listdir(tagdir):
@@ -129,13 +189,13 @@ def get_tags(tagdir, prefix=''):
         tags.append(fulltag)
 
         #print("Recursing on: " + curdir)
-        tags.extend(get_tags(curdir, fulltag))
+        tags.extend(get_all_tags(curdir, fulltag))
 
     return sorted(tags)
 
 def print_tags(ck_tag_dir, ck):
     if ck is None:
-        tags = get_tags(ck_tag_dir)
+        tags = get_all_tags(ck_tag_dir)
     else:
         pdfs = find_tagged_pdfs(ck_tag_dir, 0)
         if ck in pdfs:

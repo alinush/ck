@@ -85,7 +85,7 @@ def ck(ctx, config_file, verbose):
     elif sys.platform == 'darwin':
         ctx.obj['ck_open'] = 'open'
     else:
-        click.echo(click.style("ERROR: " + sys.platform + " is not supported", fg="red"), err=True)
+        click.secho("ERROR: " + sys.platform + " is not supported", fg="red", err=True)
         sys.exit(1)
 
     # always do a sanity check before invoking the actual subcommand
@@ -189,11 +189,11 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
     if os.path.exists(destpdffile):
-        click.echo(click.style("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red"), err=True)
+        click.secho("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red", err=True)
         sys.exit(1)
     
     if os.path.exists(destbibfile):
-        click.echo(click.style("ERROR: " + destbibfile + " already exists. Pick a different citation key.", fg="red"), err=True)
+        click.secho("ERROR: " + destbibfile + " already exists. Pick a different citation key.", fg="red", err=True)
         sys.exit(1)
 
     parsed_url = urlparse(url)
@@ -234,7 +234,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
         # TODO: if no CK specified, prompt the user for one
         handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
     else:
-        click.echo(click.style("ERROR: Cannot handle URLs from '" + domain + "' yet.", fg="red"), err=True)
+        click.secho("ERROR: Cannot handle URLs from '" + domain + "' yet.", fg="red", err=True)
         sys.exit(1)
 
     if not no_rename_ck:
@@ -291,7 +291,7 @@ def ck_queue_cmd(ctx, citation_key):
         ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/to-read")
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/finished,queue/reading")
     else:
-        click.echo(click.style("Papers that remain to be read:", bold=True))
+        click.secho("Papers that remain to be read:", bold=True)
         click.echo()
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/to-read')])
@@ -311,7 +311,7 @@ def ck_read_cmd(ctx, citation_key):
         ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/reading")
         ctx.invoke(ck_open_cmd, filename=citation_key + ".pdf")
     else:
-        click.echo(click.style("Papers you are currently reading:", bold=True))
+        click.secho("Papers you are currently reading:", bold=True)
         click.echo()
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/reading')])
@@ -330,7 +330,7 @@ def ck_finished_cmd(ctx, citation_key):
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/reading")
         ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/finished")
     else:
-        click.echo(click.style("Papers you have finished reading:", bold=True))
+        click.secho("Papers you have finished reading:", bold=True)
         click.echo()
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/finished')])
@@ -379,10 +379,10 @@ def ck_untag_cmd(ctx, citation_key, tags):
         tags = parse_tags(tags)
         for tag in tags:
             if untag_paper(ck_tag_dir, citation_key, tag):
-                click.echo(click.style("Removed '" + tag + "' tag", fg="green")) 
+                click.secho("Removed '" + tag + "' tag", fg="green")
             else:
                 if verbosity > 0:
-                    click.echo(click.style("WARNING: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red"), err=True) 
+                    click.secho("WARNING: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red", err=True)
 
 @ck.command('tags')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -400,16 +400,16 @@ def ck_tags_cmd(ctx, citation_key, tags):
         print_tags(ck_tag_dir, citation_key)
     else:
         if not os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
-            click.echo(click.style("ERROR: " + citation_key + " has no PDF file", fg="red"), err=True)
+            click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
             sys.exit(1)
 
         tags = parse_tags(tags)
 
         for tag in tags:
             if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
-                click.echo(click.style("Added '" + tag + "' tag", fg="green")) 
+                click.secho("Added '" + tag + "' tag", fg="green")
             else:
-                click.echo(click.style("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red"), err=True)
+                click.secho("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red", err=True)
 
 @ck.command('rm')
 @click.option(
@@ -450,9 +450,9 @@ def ck_rm_cmd(ctx, force, citation_key):
         for f in files:
             if os.path.exists(f):
                 os.remove(f)
-                click.echo(click.style("Deleted " + f, fg="green"))
+                click.secho("Deleted " + f, fg="green")
             else:
-                click.echo(click.style("WARNING: " + f + " does not exist, nothing to delete...", fg="red"), err=True)
+                click.secho("WARNING: " + f + " does not exist, nothing to delete...", fg="red", err=True)
 
         # untag the paper
         untag_paper(ck_tag_dir, citation_key)
@@ -468,6 +468,7 @@ def ck_open_cmd(ctx, filename):
     ctx.ensure_object(dict)
     verbosity      = ctx.obj['verbosity']
     ck_bib_dir     = ctx.obj['ck_bib_dir']
+    ck_tag_dir     = ctx.obj['ck_tag_dir']
     ck_open        = ctx.obj['ck_open']
     ck_text_editor = ctx.obj['ck_text_editor']
 
@@ -479,9 +480,11 @@ def ck_open_cmd(ctx, filename):
         
     fullpath = os.path.join(ck_bib_dir, filename)
 
+    print_tags(ck_tag_dir, basename)
+
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
-            click.echo(click.style("ERROR: " + basename + " paper is NOT in the library as a PDF", fg="red"), err=True)
+            click.secho("ERROR: " + basename + " paper is NOT in the library as a PDF", fg="red", err=True)
             sys.exit(1)
 
         # not interested in output
@@ -521,7 +524,7 @@ def ck_open_cmd(ctx, filename):
         os.system('cd "' + ck_bib_dir + '" && ' + ck_text_editor + ' "' + filename + '"')
     elif extension.lower() == '.html':
         if os.path.exists(fullpath) is False:
-            click.echo(click.style("ERROR: No HTML notes in the library for '" + basename + "'", fg="red"), err=True)
+            click.secho("ERROR: No HTML notes in the library for '" + basename + "'", fg="red", err=True)
             sys.exit(1)
 
         completed = subprocess.run(
@@ -530,7 +533,7 @@ def ck_open_cmd(ctx, filename):
             stderr=subprocess.DEVNULL,
         )
     else:
-        click.echo(click.style("ERROR: " + extension.lower() + " extension is not supported", fg="red"), err=True)
+        click.secho("ERROR: " + extension.lower() + " extension is not supported", fg="red", err=True)
         sys.exit(1)
 
 @ck.command('bib')
@@ -645,8 +648,7 @@ def ck_search_cmd(ctx, query, case_sensitive):
     verbosity   = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
 
-    matched = False
-    
+    cks = set()
     for relpath in os.listdir(ck_bib_dir):
         filepath = os.path.join(ck_bib_dir, relpath)
         filename, extension = os.path.splitext(relpath)
@@ -660,14 +662,11 @@ def ck_search_cmd(ctx, query, case_sensitive):
                 query = query.lower()
 
                 if query in bibtex:
-                    matched = True
-                    if verbosity > 0:
-                        print(origBibtex.strip())
-                        print()
-                    else:
-                        print(filename)
+                    cks.add(filename)
 
-    if matched is False:
+    if len(cks) > 0:
+        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity))
+    else:
         print("No matches!")
 
 @ck.command('cleanbib')
@@ -756,59 +755,11 @@ def ck_list_cmd(ctx, pathnames):
     if verbosity > 0:
         print(cks)
 
-    sorted_cks = []
-    for ck in cks:
-        # TODO: Take flags that decide what to print. For now, "title, authors, year"
-        bibfile = os.path.join(ck_bib_dir, ck + ".bib")
-        if verbosity > 1:
-            print("Parsing BibTeX for " + ck)
+    ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
 
-        try:
-            with open(bibfile) as bibf:
-                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-                bibtex = bibtexparser.load(bibf, parser)
+    sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
 
-            #print(bibtex.entries)
-            #print("Comments: ")
-            #print(bibtex.comments)
-            bib = bibtex.entries[0]
-
-            # make sure the CK in the .bib matches the filename
-            bck = bib['ID']
-            if bck != ck:
-                print("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n")
-
-            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
-            title  = bib['title'].strip("{}")
-            year   = bib['year']
-            date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
-
-            sorted_cks.append((ck, author, title, year, date))
-
-        except FileNotFoundError:
-            print(ck + ":", "Missing BibTeX file in directory", ck_bib_dir)
-        except:
-            print(ck + ":", "Unexpected error")
-            traceback.print_exc()
-
-    sorted_cks = sorted(sorted_cks, key=lambda item: item[4])
-
-    for (ck, author, title, year, date) in sorted_cks:
-        click.echo(click.style(ck, fg='blue'), nl=False)
-        click.echo(", ", nl=False)
-        click.echo(click.style(title, fg='green'), nl=False)
-        click.echo(", ", nl=False)
-        click.echo(click.style(year,fg='red', bold=True), nl=False)
-        click.echo(", ", nl=False)
-        click.echo(author, nl=False)
-        if date:
-            date = datetime.strftime(datetime.strptime(date, "%Y-%m-%d %H:%M:%S"), "%B %-d, %Y")
-            click.echo(', (', nl=False)
-            click.echo(click.style(date, fg='magenta'), nl=False)
-            click.echo(')', nl=False)
-        click.echo()
-
-        #print(ck + ": " + title + " by " + author + ", " + year + date)
+    print_ck_tuples(sorted_cks)
 
     print()
     print(str(len(cks)) + " PDFs listed")
