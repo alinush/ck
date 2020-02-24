@@ -336,10 +336,15 @@ def ck_finished_cmd(ctx, citation_key):
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/finished')])
 
 @ck.command('untag')
+@click.option(
+    '-f', '--force',
+    is_flag=True,
+    default=False,
+    help='Do not prompt for confirmation when removing all tags')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tags', required=False, type=click.STRING)
 @click.pass_context
-def ck_untag_cmd(ctx, citation_key, tags):
+def ck_untag_cmd(ctx, force, citation_key, tags):
     """Untags the specified paper."""
 
     ctx.ensure_object(dict)
@@ -374,15 +379,19 @@ def ck_untag_cmd(ctx, citation_key, tags):
         else:
             print("No untagged papers.")
     else:
-        assert tags is not None
-
-        tags = parse_tags(tags)
-        for tag in tags:
-            if untag_paper(ck_tag_dir, citation_key, tag):
-                click.secho("Removed '" + tag + "' tag", fg="green")
-            else:
-                if verbosity > 0:
-                    click.secho("WARNING: " + citation_key + " is not tagged with '" + tag + "' tag", fg="red", err=True)
+        if tags is not None:
+            tags = parse_tags(tags)
+            for tag in tags:
+                if untag_paper(ck_tag_dir, citation_key, tag):
+                    click.secho("Removed '" + tag + "' tag", fg="green")
+                else:
+                    click.secho("Not tagged with '" + tag + "' tag", fg="red", err=True)
+        else:
+            if force or click.confirm("Are you sure you want to remove ALL tags for " + click.style(citation_key, fg="blue") + "?"):
+                if untag_paper(ck_tag_dir, citation_key):
+                    click.secho("Removed all tags!", fg="green")
+                else:
+                    click.secho("No tags to remove.", fg="red")
 
 @ck.command('tags')
 @click.argument('citation_key', required=False, type=click.STRING)
