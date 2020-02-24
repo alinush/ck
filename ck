@@ -426,6 +426,7 @@ def ck_rm_cmd(ctx, force, citation_key):
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_tag_dir = ctx.obj['ck_tag_dir']
     
     # allow user to provide file name directly (or citation key to delete everything)
     basename, extension = os.path.splitext(citation_key)
@@ -440,22 +441,23 @@ def ck_rm_cmd(ctx, force, citation_key):
         if os.path.exists(f):
             something_to_del = True
 
-    if something_to_del:
+    if force or something_to_del:
         if not force:
             if not confirm_user("Are you sure you want to delete '" + citation_key + "' from the library?"):
-                print("Okay, not deleting anything.")
+                click.echo("Okay, not deleting anything.")
                 return
 
         for f in files:
             if os.path.exists(f):
                 os.remove(f)
-                print("Deleted", f)
+                click.echo(click.style("Deleted " + f, fg="green"))
             else:
-                print("WARNING:", f, "does not exist, nothing to delete...")
+                click.echo(click.style("WARNING: " + f + " does not exist, nothing to delete...", fg="red"), err=True)
 
-        # TODO: what to do about TagDir symlinks?
+        # untag the paper
+        untag_paper(ck_tag_dir, citation_key)
     else:
-        print(citation_key, "is not in library. Nothing to delete.")
+        click.echo(citation_key + " is not in library. Nothing to delete.")
 
 @ck.command('open')
 @click.argument('filename', required=True, type=click.STRING)

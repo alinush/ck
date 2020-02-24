@@ -4,6 +4,7 @@
 from pprint import pprint
 
 # NOTE: Alphabetical order please
+import click
 import os
 import sys
 import traceback
@@ -158,13 +159,25 @@ def prompt_for_tags(prompt):
     tags_str = prompt_user(prompt)
     return parse_tags(tags_str)
 
-def untag_paper(ck_tag_dir, citation_key, tag):
-    filepath = os.path.join(ck_tag_dir, tag, citation_key + ".pdf")
-    if os.path.exists(filepath):
-        os.remove(filepath)
-        return True
+# if tag is None, removes all tags for the paper
+def untag_paper(ck_tag_dir, citation_key, tag=None):
+    if tag is not None:
+        filepath = os.path.join(ck_tag_dir, tag, citation_key + ".pdf")
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return True
+        else:
+            return False
     else:
-        return False
+        untagged = False
+        filename = citation_key + ".pdf"
+        for root, dirs, files in os.walk(ck_tag_dir):
+             for name in files:
+                if name == filename:
+                    os.remove(os.path.join(root, name))
+                    untagged = True
+
+        return untagged
 
 def tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
     pdf_tag_dir = os.path.join(ck_tag_dir, tag)
