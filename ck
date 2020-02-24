@@ -586,6 +586,8 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         bib = bibtex.entries[0]
         title = bib['title'].strip("{}")
         authors = bib['author']
+        authors = authors.replace("{", "")
+        authors = authors.replace("}", "")
         citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
         to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
 
