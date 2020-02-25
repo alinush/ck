@@ -375,6 +375,7 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
             for (filepath, citation_key) in untagged_pdfs:
                 ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
+                print()
                 print_all_tags(ck_tag_dir)
                 print()
                 tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
@@ -460,7 +461,7 @@ def ck_rm_cmd(ctx, force, citation_key):
 
     if force or something_to_del:
         if not force:
-            if not confirm_user("Are you sure you want to delete '" + citation_key + "' from the library?"):
+            if not click.confirm("Are you sure you want to delete '" + citation_key + "' from the library?"):
                 click.echo("Okay, not deleting anything.")
                 return
 
@@ -498,7 +499,10 @@ def ck_open_cmd(ctx, filename):
         
     fullpath = os.path.join(ck_bib_dir, filename)
 
-    print_tags(ck_tags[basename])
+    if basename in ck_tags:
+        print_tags(ck_tags[basename])
+    else:
+        click.secho("No tags yet for '" + basename + "'", fg="red")
 
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
@@ -527,7 +531,7 @@ def ck_open_cmd(ctx, filename):
                 now = datetime.now()
                 nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
 
-                if confirm_user("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
+                if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
                     # add ckdateadded field to keep track of papers by date added 
                     bibtex.entries[0]['ckdateadded'] = nowstr
 
@@ -579,18 +583,17 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
 
     path = os.path.join(ck_bib_dir, citation_key + '.bib')
     if os.path.exists(path) is False:
-        if confirm_user(citation_key + " has no .bib file. Would you like to create it?"):
+        if click.confirm(citation_key + " has no .bib file. Would you like to create it?"):
             ctx.invoke(ck_open_cmd, filename=citation_key + ".bib")
-
-        sys.exit(1)
+        else:
+            click.echo("Okay, will NOT create .bib file. Exiting...")
+            sys.exit(1)
 
     if markdown == False:
-        print()
         print("BibTeX for '%s'" % path)
         print()
-        bibtex = file_to_string(path).strip()
+        bibtex = file_to_string(path).strip().strip('\n').strip('\r').strip('\t')
         to_copy = bibtex
-        print()
     else:
         try:
             with open(path) as bibf:

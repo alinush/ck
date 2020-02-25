@@ -16,17 +16,6 @@ def get_terminal_width():
     rows, columns = os.popen('stty size', 'r').read().split()
     return columns
 
-def prompt_user(prompt):
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    answer = sys.stdin.readline().strip()
-    return answer
-
-def confirm_user(prompt):
-    prompt += " [y/N]: "
-    ans = prompt_user(prompt).strip()
-    return ans.lower() == "y" or ans.lower() == "yes"
-
 def notimplemented():
     print()
     print("ERROR: Not implemented yet. Exiting...")

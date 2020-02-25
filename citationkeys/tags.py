@@ -93,9 +93,9 @@ def style_tags(taglist):
     return tagstr
 
 def print_tags(tags):
-    # TODO: pretty print. get width using get_terminal_width
+    # TODO: pretty & hierarchically print. get width using get_terminal_width
     sys.stdout.write("Tags: ")
-    print(tags)
+    print(style_tags(tags))
 
 def parse_tags(tags):
     tags = tags.split(',')
@@ -104,7 +104,7 @@ def parse_tags(tags):
     return tags
 
 def prompt_for_tags(prompt):
-    tags_str = prompt_user(prompt)
+    tags_str = click.prompt(prompt)
     return parse_tags(tags_str)
 
 # if tag is None, removes all tags for the paper
