@@ -4,6 +4,7 @@
 from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
 from citationkeys.misc import *
+from citationkeys.tags import *
 from citationkeys.urlhandlers import *
 from datetime import datetime
 from fake_useragent import UserAgent
@@ -74,10 +75,11 @@ def ck(ctx, config_file, verbose):
 
     # set a context with various config params that we pass around to the subcommands
     ctx.ensure_object(dict)
-    ctx.obj['verbosity']        = verbose
-    ctx.obj['ck_bib_dir']       = config['default']['ck_bib_dir']
-    ctx.obj['ck_tag_dir']       = config['default']['ck_tag_dir']
-    ctx.obj['ck_text_editor']   = config['default']['ck_text_editor']
+    ctx.obj['verbosity']    = verbose
+    ctx.obj['BibDir']       = config['default']['ck_bib_dir']
+    ctx.obj['TagDir']       = config['default']['ck_tag_dir']
+    ctx.obj['TextEditor']   = config['default']['ck_text_editor']
+    ctx.obj['tags']         = find_tagged_pdfs(ctx.obj['TagDir'], verbose)
 
     # set command to open PDFs with
     if sys.platform.startswith('linux'):
@@ -90,7 +92,7 @@ def ck(ctx, config_file, verbose):
 
     # always do a sanity check before invoking the actual subcommand
     # TODO: figure out how to call this *after* (not before) the subcommand is invoked, so the user can actually see its output
-    #ck_check(ctx.obj['ck_bib_dir'], ctx.obj['ck_tag_dir'], verbose)
+    #ck_check(ctx.obj['BibDir'], ctx.obj['TagDir'], verbose)
 
 @ck.command('check')
 @click.pass_context
@@ -99,8 +101,8 @@ def ck_check_cmd(ctx):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
 
     ck_check(ck_bib_dir, ck_tag_dir, verbosity)
 
@@ -173,8 +175,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
 
     if verbosity > 0:
         print("Verbosity:", verbosity)
@@ -258,7 +260,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
 
     if not no_tag_prompt:
         # prompt user to tag paper
-        print_tags(ck_tag_dir, None)
+        print_all_tags(ck_tag_dir)
         print()
         tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
         for tag in tags:
@@ -270,7 +272,7 @@ def ck_config_cmd(ctx):
     """Lets you edit the config file and prints it at the end."""
 
     ctx.ensure_object(dict)
-    ck_text_editor = ctx.obj['ck_text_editor']
+    ck_text_editor = ctx.obj['TextEditor']
 
     fullpath = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
     os.system(ck_text_editor + " \"" + fullpath + "\"")
@@ -284,8 +286,8 @@ def ck_queue_cmd(ctx, citation_key):
     """Marks this paper as 'to-be-read', removing the 'queue/reading' and/or 'queue/finished' tags"""
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
         ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/to-read")
@@ -303,8 +305,8 @@ def ck_read_cmd(ctx, citation_key):
     """Marks this paper as in the process of 'reading', removing the 'queue/to-read' and/or 'queue/finished' tags"""
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/finished")
@@ -323,8 +325,8 @@ def ck_finished_cmd(ctx, citation_key):
     """Marks this paper as 'finished reading', removing the 'queue/to-read' and/or 'queue/reading' tags"""
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/reading")
@@ -349,12 +351,13 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+    ck_tags    = ctx.obj['tags']
         
     if citation_key is None and tags is None:
         # If no paper was specified, detects untagged papers and asks the user to tag them.
-        untagged_pdfs = find_untagged_pdfs(ck_bib_dir, ck_tag_dir, verbosity)
+        untagged_pdfs = find_untagged_pdfs(ck_bib_dir, ck_tag_dir, list_cks(ck_bib_dir), ck_tags.keys(), verbosity)
         if len(untagged_pdfs) > 0:
             sys.stdout.write("Untagged papers: ")
             first_iter = True
@@ -371,7 +374,7 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
             for (filepath, citation_key) in untagged_pdfs:
                 ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
 
-                print_tags(ck_tag_dir, None)
+                print_all_tags(ck_tag_dir)
                 print()
                 tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
                 for tag in tags:
@@ -402,11 +405,15 @@ def ck_tags_cmd(ctx, citation_key, tags):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+    ck_tags    = ctx.obj['tags']
 
     if tags is None:
-        print_tags(ck_tag_dir, citation_key)
+        if citation_key is None:
+            print_all_tags(ck_tag_dir)
+        else:
+            print_tags(ck_tags[citation_key])
     else:
         if not os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
             click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
@@ -434,8 +441,8 @@ def ck_rm_cmd(ctx, force, citation_key):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = ctx.obj['ck_tag_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
     
     # allow user to provide file name directly (or citation key to delete everything)
     basename, extension = os.path.splitext(citation_key)
@@ -476,10 +483,11 @@ def ck_open_cmd(ctx, filename):
 
     ctx.ensure_object(dict)
     verbosity      = ctx.obj['verbosity']
-    ck_bib_dir     = ctx.obj['ck_bib_dir']
-    ck_tag_dir     = ctx.obj['ck_tag_dir']
+    ck_bib_dir     = ctx.obj['BibDir']
+    ck_tag_dir     = ctx.obj['TagDir']
     ck_open        = ctx.obj['ck_open']
-    ck_text_editor = ctx.obj['ck_text_editor']
+    ck_text_editor = ctx.obj['TextEditor']
+    ck_tags        = ctx.obj['tags']
 
     basename, extension = os.path.splitext(filename)
 
@@ -489,7 +497,7 @@ def ck_open_cmd(ctx, filename):
         
     fullpath = os.path.join(ck_bib_dir, filename)
 
-    print_tags(ck_tag_dir, basename)
+    print_tags(ck_tags[basename])
 
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
@@ -564,7 +572,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_bib_dir = ctx.obj['BibDir']
 
     # TODO: maybe add args for isolating author/title/year/etc
 
@@ -633,7 +641,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_bib_dir = ctx.obj['BibDir']
 
     # TODO: make sure new_citation_key does not exist
     # TODO: rename in ck_bib_dir
@@ -655,7 +663,8 @@ def ck_search_cmd(ctx, query, case_sensitive):
 
     ctx.ensure_object(dict)
     verbosity   = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tags    = ctx.obj['tags']
 
     cks = set()
     for relpath in os.listdir(ck_bib_dir):
@@ -674,7 +683,7 @@ def ck_search_cmd(ctx, query, case_sensitive):
                     cks.add(filename)
 
     if len(cks) > 0:
-        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity))
+        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags)
     else:
         print("No matches!")
 
@@ -685,8 +694,8 @@ def ck_cleanbib_cmd(ctx):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['ck_tag_dir']))
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['TagDir']))
 
     cks = list_cks(ck_bib_dir)
 
@@ -727,8 +736,9 @@ def ck_list_cmd(ctx, pathnames):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
-    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['ck_tag_dir']))
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['TagDir']))
+    ck_tags    = ctx.obj['tags']
 
     if len(pathnames) > 0:
         cks = set()
@@ -757,7 +767,6 @@ def ck_list_cmd(ctx, pathnames):
         else:
             paper_dir=ck_bib_dir
 
-        # TODO: list_cks could return a dict() mapping the tag name to the CK(s)?
         # Then, we can list the papers by tags below.
         cks = list_cks(paper_dir)
 
@@ -768,7 +777,7 @@ def ck_list_cmd(ctx, pathnames):
 
     sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
 
-    print_ck_tuples(sorted_cks)
+    print_ck_tuples(sorted_cks, ck_tags)
 
     print()
     print(str(len(cks)) + " PDFs listed")
@@ -789,7 +798,7 @@ def ck_genbib(ctx, output_file):
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
-    ck_bib_dir = ctx.obj['ck_bib_dir']
+    ck_bib_dir = ctx.obj['BibDir']
 
     num = 0
     sortedfiles = sorted(os.listdir(ck_bib_dir))
