@@ -22,6 +22,7 @@ import configparser
 import os
 import pyperclip
 import subprocess
+import shutil
 import sys
 import traceback
 import urllib
@@ -740,35 +741,7 @@ def ck_list_cmd(ctx, pathnames):
     ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['TagDir']))
     ck_tags    = ctx.obj['tags']
 
-    if len(pathnames) > 0:
-        cks = set()
-        for path in pathnames:
-            if os.path.isdir(path):
-                cks.update(list_cks(path))
-            else:
-                filename = os.path.basename(path)
-                ck, ext = os.path.splitext(filename)
-                cks.add(ck)
-    else:
-        # When listing with 'ck l', we have to figure out if the CWD is somewhere in the TagDir
-        # and if so, only list the CKs there. Otherwise, we list all CKs in the BibDir.
-        cwd = os.path.normpath(os.getcwd())
-        common_prefix = os.path.commonpath([ck_tag_dir, cwd])
-        is_in_tag_dir = (common_prefix == ck_tag_dir)
-
-        if verbosity > 0:
-            print("CWD:               ", cwd) 
-            print("Tag dir:           ", ck_tag_dir) 
-            print("Is CWD in tag dir? ", is_in_tag_dir)
-            print()
-
-        if is_in_tag_dir:
-            paper_dir=cwd
-        else:
-            paper_dir=ck_bib_dir
-
-        # Then, we can list the papers by tags below.
-        cks = list_cks(paper_dir)
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
 
     if verbosity > 0:
         print(cks)
@@ -791,30 +764,62 @@ def ck_list_cmd(ctx, pathnames):
     # TODO: filter by year/author/title/conference
 
 @ck.command('genbib')
-@click.argument('output-file', type=click.File('w'))
+@click.argument('output-bibtex-file', required=True, type=click.File('w'))
+@click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
 @click.pass_context
-def ck_genbib(ctx, output_file):
+def ck_genbib(ctx, output_bibtex_file, pathnames):
     """Generates a master bibliography file of all papers."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
 
     num = 0
-    sortedfiles = sorted(os.listdir(ck_bib_dir))
-    for relpath in sortedfiles:
-        filepath = os.path.join(ck_bib_dir, relpath)
-        filename, extension = os.path.splitext(relpath)
+    sortedcks = sorted(cks)
+    for ck in sortedcks:
+        bibfilepath = os.path.join(ck_bib_dir, ck + ".bib")
+        #pdffilepath = os.path.join(ck_bib_dir, ck + ".pdf")
 
-        if extension.lower() == ".bib":
+        if os.path.exists(bibfilepath):
             num += 1
-            bibtex = file_to_string(filepath)
-            output_file.write(bibtex + '\n')
+            bibtex = file_to_string(bibfilepath)
+            output_bibtex_file.write(bibtex + '\n')
 
     if num == 0:
-        print("No .bib files in library.")
+        print("No .bib files in specified directories.")
     else:
-        print("Wrote", num, ".bib files to", output_file.name)
+        print("Wrote", num, ".bib files to", output_bibtex_file.name)
+
+@ck.command('copypdfs')
+@click.argument('output-dir', required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
+@click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+@click.pass_context
+def ck_copypdfs(ctx, output_dir, pathnames):
+    """Copies all PDFs from the specified directories into the output directory."""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
+
+    num = 0
+    sortedcks = sorted(cks)
+    for ck in sortedcks:
+        pdffilepath = os.path.join(ck_bib_dir, ck + ".pdf")
+
+        if os.path.exists(pdffilepath):
+            num += 1
+            shutil.copy2(pdffilepath, output_dir)
+
+    if num == 0:
+        print("No .pdf files in specified directories.")
+    else:
+        print("Copied", num, ".pdf files to", output_dir)
 
 if __name__ == '__main__':
     ck(obj={})

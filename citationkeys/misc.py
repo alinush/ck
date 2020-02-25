@@ -49,6 +49,43 @@ def ck_to_pdf(ck_bib_dir, ck):
 def ck_to_bib(ck_bib_dir, ck):
     return os.path.join(ck_bib_dir, ck + ".bib")
 
+# useful for commands like 'ck list' and 'ck genbib'
+# 1. When no path is given
+#   1.1. if in TagDir, list CKs in all subdirs
+#   1.2. if not in TagDir, list *all* CKs in BibDir
+# 2. When paths are given, list CKs in all those paths
+def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames):
+    if len(pathnames) > 0:
+        cks = set()
+        for path in pathnames:
+            if os.path.isdir(path):
+                cks.update(list_cks(path))
+            else:
+                filename = os.path.basename(path)
+                ck, ext = os.path.splitext(filename)
+                cks.add(ck)
+    else:
+        # When listing with 'ck l', we have to figure out if the CWD is somewhere in the TagDir
+        # and if so, only list the CKs there. Otherwise, we list all CKs in the BibDir.
+        cwd = os.path.normpath(os.getcwd())
+        common_prefix = os.path.commonpath([ck_tag_dir, cwd])
+        is_in_tag_dir = (common_prefix == ck_tag_dir)
+
+        #print("CWD:               ", cwd)
+        #print("Tag dir:           ", ck_tag_dir)
+        #print("Is CWD in tag dir? ", is_in_tag_dir)
+        #print()
+
+        if is_in_tag_dir:
+            paper_dir=cwd
+        else:
+            paper_dir=ck_bib_dir
+
+        # Then, we can list the papers by tags below.
+        cks = list_cks(paper_dir)
+
+    return cks
+
 # TODO: Take flags that decide what to print. For now, "title, authors, year"
 def cks_to_tuples(ck_bib_dir, cks, verbosity):
     ck_tuples = []
