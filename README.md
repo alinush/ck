@@ -65,6 +65,10 @@ TODOs
     + titles should have double brackets
     + same conference shouldn't have different names
     - similar or incomplete author names
+ - how to deal with multiple versions of the same paper (eprint, conference, journal)
+    + when published in the same year, we could have the eprint version as an extra `ABC99.eprint.pdf` file
+    - when published in different years, can just have a new CK for it
+    - `open` should be adjusted to prompt user for what to open, if multiple `.pdf` files exist for a CK?
  - `ck` command
     - `open` subcommand
         - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
@@ -79,6 +83,8 @@ TODOs
         - list all conferences across papers
     - `rename` command
         - renames a citation key and updates all symlinks
+    - `untag` subcommand
+        + right now, if we only have a `.bib` file without any PDFs, `untag` will not detect any untagged papers. how to handle?
     + `open` subcommand
         - autocomplete citation key
             + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
