@@ -81,6 +81,18 @@ def print_all_tags(ck_tag_dir):
     tags = get_all_tags(ck_tag_dir)
     print_tags(tags)
 
+def print_tags(tags):
+    def pop_suffix(prefix):
+        pos = prefix.rfind('/')
+        if pos == -1:
+            return prefix
+        else:
+            return prefix[:pos]
+
+    # TODO: use a stack for housekeeping to print things nicely 
+
+    print(style_tags(tags))
+
 def style_tags(taglist):
     tagstr = ""
     for tag in taglist:
@@ -91,11 +103,6 @@ def style_tags(taglist):
             tagstr = tagstr + ", " + t
 
     return tagstr
-
-def print_tags(tags):
-    # TODO: pretty & hierarchically print. get width using get_terminal_width
-    sys.stdout.write("Tags: ")
-    print(style_tags(tags))
 
 def parse_tags(tags):
     tags = tags.split(',')

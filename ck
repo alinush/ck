@@ -260,12 +260,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
             bibf.write(bibwriter.write(bibtex))
 
     if not no_tag_prompt:
-        # prompt user to tag paper
-        print_all_tags(ck_tag_dir)
+        # display all tags 
+        ctx.invoke(ck_tags_cmd)
+
         print()
-        tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
-        for tag in tags:
-            tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+
+        # prompt user to tag paper
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key)
 
 @ck.command('config')
 @click.pass_context
@@ -291,13 +292,25 @@ def ck_queue_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
-        ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/to-read")
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/to-read")
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/finished,queue/reading")
     else:
         click.secho("Papers that remain to be read:", bold=True)
         click.echo()
 
         ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/to-read')])
+
+@ck.command('dequeue')
+@click.argument('citation_key', required=True, type=click.STRING)
+@click.pass_context
+def ck_dequeue_cmd(ctx, citation_key):
+    """Removes this paper from the to-read list"""
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+
+    ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read")
 
 @ck.command('read')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -311,7 +324,7 @@ def ck_read_cmd(ctx, citation_key):
 
     if citation_key is not None:
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/finished")
-        ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/reading")
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/reading")
         ctx.invoke(ck_open_cmd, filename=citation_key + ".pdf")
     else:
         click.secho("Papers you are currently reading:", bold=True)
@@ -331,7 +344,7 @@ def ck_finished_cmd(ctx, citation_key):
 
     if citation_key is not None:
         ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/reading")
-        ctx.invoke(ck_tags_cmd, citation_key=citation_key, tags="queue/finished")
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/finished")
     else:
         click.secho("Papers you have finished reading:", bold=True)
         click.echo()
@@ -373,14 +386,12 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
             print('\n')
 
             for (filepath, citation_key) in untagged_pdfs:
+                # display paper info
                 ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
-
-                print()
-                print_all_tags(ck_tag_dir)
-                print()
-                tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
-                for tag in tags:
-                    tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
+                # display all tags 
+                ctx.invoke(ck_tags_cmd)
+                # prompt user to tag paper
+                ctx.invoke(ck_tag_cmd, citation_key=citation_key)
         else:
             print("No untagged papers.")
     else:
@@ -398,12 +409,39 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
                 else:
                     click.secho("No tags to remove.", fg="red")
 
+@ck.command('info')
+@click.argument('citation_key', required=True, type=click.STRING)
+@click.pass_context
+def ck_info_cmd(ctx, citation_key):
+    """Displays info about the specified paper"""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+    ck_tags    = ctx.obj['tags']
+
+    print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags)
+
 @ck.command('tags')
-@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_tags_cmd(ctx):
+    """Lists all tags in the library"""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+    ck_tags    = ctx.obj['tags']
+
+    print_all_tags(ck_tag_dir)
+
+@ck.command('tag')
+@click.argument('citation_key', required=True, type=click.STRING)
 @click.argument('tags', required=False, type=click.STRING)
 @click.pass_context
-def ck_tags_cmd(ctx, citation_key, tags):
-    """Tags the specified paper or lists its tags"""
+def ck_tag_cmd(ctx, citation_key, tags):
+    """Tags the specified paper"""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -412,22 +450,17 @@ def ck_tags_cmd(ctx, citation_key, tags):
     ck_tags    = ctx.obj['tags']
 
     if tags is None:
-        if citation_key is None:
-            print_all_tags(ck_tag_dir)
+        tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
+
+    if not os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
+        click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
+        sys.exit(1)
+
+    for tag in tags:
+        if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
+            click.secho("Added '" + tag + "' tag", fg="green")
         else:
-            print_tags(ck_tags[citation_key])
-    else:
-        if not os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
-            click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
-            sys.exit(1)
-
-        tags = parse_tags(tags)
-
-        for tag in tags:
-            if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
-                click.secho("Added '" + tag + "' tag", fg="green")
-            else:
-                click.secho("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red", err=True)
+            click.secho("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red", err=True)
 
 @ck.command('rm')
 @click.option(
