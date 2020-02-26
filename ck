@@ -263,7 +263,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
         # prompt user to tag paper
         print_all_tags(ck_tag_dir)
         print()
-        tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
+        tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
         for tag in tags:
             tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
 
@@ -378,7 +378,7 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
                 print()
                 print_all_tags(ck_tag_dir)
                 print()
-                tags = prompt_for_tags("Please enter tag(s) for '" + citation_key + "': ")
+                tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
                 for tag in tags:
                     tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag)
         else:
