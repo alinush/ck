@@ -3,6 +3,7 @@
 # NOTE: Alphabetical order please
 from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
+from citationkeys.bib  import *
 from citationkeys.misc import *
 from citationkeys.tags import *
 from citationkeys.urlhandlers import *
@@ -19,6 +20,7 @@ import bibtexparser
 import bs4
 import click
 import configparser
+import glob
 import os
 import pyperclip
 import subprocess
@@ -182,10 +184,6 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     if verbosity > 0:
         print("Verbosity:", verbosity)
 
-    now = datetime.now()
-    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
-    #print("Time:", nowstr)
-    
     # Make sure paper doesn't exist in the library first
     # TODO: save to temp file, so you can first display abstract with author names and prompt the user for the "Citation Key" rather than giving it as an arg
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
@@ -242,22 +240,10 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
 
     if not no_rename_ck:
         # change the citation key in the .bib file to citation_key
-        if verbosity > 0:
-            print("Renaming CK to " + citation_key + " in " + destbibfile)
+        bib_rename_ck(destbibfile, citation_key)
 
-        with open(destbibfile) as bibf:
-            # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
-            parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-            bibtex = bibtexparser.load(bibf, parser)
-        bibtex.entries[0]['ID'] = citation_key
-
-        # add ckdateadded field to keep track of papers by date added
-        bibtex.entries[0]['ckdateadded'] = nowstr
-
-        bibwriter = BibTexWriter()
-        with open(destbibfile, 'w') as bibf:
-            canonicalize_bibtex(citation_key, bibtex, verbosity)
-            bibf.write(bibwriter.write(bibtex))
+        # update ckdateadded
+        bib_set_dateadded(destbibfile, None)
 
     if not no_tag_prompt:
         # display all tags 
@@ -451,8 +437,12 @@ def ck_tag_cmd(ctx, citation_key, tags):
 
     if tags is None:
         tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
+    else:
+        tags = parse_tags(tags)
 
-    if not os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
+    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
+
+    if not ck_exists(ck_bib_dir, citation_key):
         click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
         sys.exit(1)
 
@@ -555,24 +545,11 @@ def ck_open_cmd(ctx, filename):
             print(file_to_string(fullpath).strip())
 
             # warn if bib file is missing 'ckdateadded' field
-            with open(fullpath) as bibf:
-                # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
-                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-                bibtex = bibtexparser.load(bibf, parser)
+            bibtex = bibread(fullpath)
 
             if 'ckdateadded' not in bibtex.entries[0]:
-                now = datetime.now()
-                nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
-
                 if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
-                    # add ckdateadded field to keep track of papers by date added 
-                    bibtex.entries[0]['ckdateadded'] = nowstr
-
-                    # write back the .bib file
-                    bibwriter = BibTexWriter()
-                    with open(fullpath, 'w') as bibf:
-                        canonicalize_bibtex(basename, bibtex, verbosity)
-                        bibf.write(bibwriter.write(bibtex))
+                    bib_set_dateadded(fullpath, None)
 
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
@@ -614,7 +591,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
 
     # TODO: maybe add args for isolating author/title/year/etc
 
-    path = os.path.join(ck_bib_dir, citation_key + '.bib')
+    path = ck_to_bib(ck_bib_dir, citation_key)
     if os.path.exists(path) is False:
         if click.confirm(citation_key + " has no .bib file. Would you like to create it?"):
             ctx.invoke(ck_open_cmd, filename=citation_key + ".bib")
@@ -679,12 +656,56 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
     ck_bib_dir = ctx.obj['BibDir']
+    ck_tag_dir = ctx.obj['TagDir']
+    ck_tags    = ctx.obj['tags']
 
-    # TODO: make sure new_citation_key does not exist
-    # TODO: rename in ck_bib_dir
-    # TODO: update .bib file citation key
-    # TODO: update all symlinks in by-tags/
-    notimplemented()
+    # make sure old CK exists and new CK does not
+    if not ck_exists(ck_bib_dir, old_citation_key):
+        click.secho("ERROR: Old citation key '" + old_citation_key + "' does NOT exist", fg="red")
+        sys.exit(1)
+
+    if ck_exists(ck_bib_dir, new_citation_key):
+        click.secho("ERROR: New citation key '" + new_citation_key + "' already exists", fg="red")
+        sys.exit(1)
+
+    # find all files associated with the CK
+    files = glob.glob(os.path.join(ck_bib_dir, old_citation_key) + '*')
+    for f in files:
+        path_noext, ext = os.path.splitext(f)
+        # e.g.,
+        # ('/Users/alinush/Dropbox/Papers/MBK+19', '.pdf')
+        # ('/Users/alinush/Dropbox/Papers/MBK+19', '.bib')
+        # ('/Users/alinush/Dropbox/Papers/MBK+19.slides', '.pdf')
+
+        #dirname = os.path.dirname(path_noext)  # i.e., BibDir
+        oldfilename = os.path.basename(path_noext)
+
+        # replaces only the 1st occurrence of the old CK to deal with the (astronomically-rare?)
+        # event where the old CK appears multiple times in the filename
+        newfilename = oldfilename.replace(old_citation_key, new_citation_key, 1)
+        if verbosity > 0:
+            click.echo("Renaming '" + oldfilename + ext + "' to '" + newfilename + ext + "' in " + ck_bib_dir)
+
+        # rename file in BibDir
+        os.rename(
+            os.path.join(ck_bib_dir, oldfilename + ext), 
+            os.path.join(ck_bib_dir, newfilename + ext))
+
+    # update .bib file citation key
+    if verbosity > 0:
+        click.echo("Renaming CK in .bib file...")
+    bib_rename_ck(ck_to_bib(ck_bib_dir, new_citation_key), new_citation_key)
+
+    # update all symlinks in TagDir by un-tagging and re-tagging
+    if verbosity > 0:
+        click.echo("Recreating tag information...")
+    tags = ck_tags[old_citation_key]
+    for tag in tags:
+        if not untag_paper(ck_tag_dir, old_citation_key, tag):
+            click.secho("WARNING: Could not remove '" + tag + "' tag", fg="red")
+
+        if not tag_paper(ck_tag_dir, ck_bib_dir, new_citation_key, tag):
+            click.secho("WARNING: Already has '" + tag + "' tag", fg="red")
 
 @ck.command('search')
 @click.argument('query', required=True, type=click.STRING)
@@ -737,7 +758,7 @@ def ck_cleanbib_cmd(ctx):
     cks = list_cks(ck_bib_dir)
 
     for ck in cks:
-        bibfile = os.path.join(ck_bib_dir, ck + ".bib")
+        bibfile = ck_to_bib(ck_bib_dir, ck)
         if verbosity > 1:
             print("Parsing BibTeX for " + ck)
         try:
@@ -816,8 +837,7 @@ def ck_genbib(ctx, output_bibtex_file, pathnames):
     num = 0
     sortedcks = sorted(cks)
     for ck in sortedcks:
-        bibfilepath = os.path.join(ck_bib_dir, ck + ".bib")
-        #pdffilepath = os.path.join(ck_bib_dir, ck + ".pdf")
+        bibfilepath = ck_to_bib(ck_bib_dir, ck)
 
         if os.path.exists(bibfilepath):
             num += 1
@@ -846,11 +866,10 @@ def ck_copypdfs(ctx, output_dir, pathnames):
     num = 0
     sortedcks = sorted(cks)
     for ck in sortedcks:
-        pdffilepath = os.path.join(ck_bib_dir, ck + ".pdf")
 
-        if os.path.exists(pdffilepath):
+        if ck_exists(ck_bib_dir, ck):
             num += 1
-            shutil.copy2(pdffilepath, output_dir)
+            shutil.copy2(ck_to_pdf(ck_bib_dir, ck), output_dir)
 
     if num == 0:
         print("No .pdf files in specified directories.")

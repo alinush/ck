@@ -118,10 +118,12 @@ def prompt_for_tags(prompt):
 def untag_paper(ck_tag_dir, citation_key, tag=None):
     if tag is not None:
         filepath = os.path.join(ck_tag_dir, tag, citation_key + ".pdf")
-        if os.path.exists(filepath):
+        # lexists returns True even if 'filepath' exists but is a broken symlink
+        if os.path.lexists(filepath):
             os.remove(filepath)
             return True
         else:
+            print(filepath + " does not exist!")
             return False
     else:
         untagged = False

@@ -38,6 +38,11 @@ def ck_to_pdf(ck_bib_dir, ck):
 def ck_to_bib(ck_bib_dir, ck):
     return os.path.join(ck_bib_dir, ck + ".bib")
 
+# for now, a CK 'existing' means it has a PDF file in the BibDir
+def ck_exists(ck_bib_dir, ck):
+    path = ck_to_pdf(ck_bib_dir, ck)
+    return os.path.exists(path)
+
 # useful for commands like 'ck list' and 'ck genbib'
 # 1. When no path is given
 #   1.1. if in TagDir, list CKs in all subdirs
@@ -158,37 +163,5 @@ def list_cks(ck_bib_dir):
 
     return sorted(cks)
 
-def canonicalize_bibtex(ck, bibtex, verbosity):
-    assert len(bibtex.entries) == 1
-    updated = False
-
-    for i in range(len(bibtex.entries)):
-        bib = bibtex.entries[i]
-
-        # make sure the CK in the .bib matches the filename
-        bck = bib['ID']
-        if bck != ck:
-            if verbosity > 1:
-                print(ck + ": Replaced unexpected '" + bck + "' CK in .bib file. Fixing...")
-            bib['ID'] = ck
-            updated = True
-
-        author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
-        if bib['author'] != author:
-            if verbosity > 1:
-                print(ck + ": Stripped author name(s): " + author)
-            bib['author'] = author
-            updated = True
-
-        title  = bib['title'].strip()
-        if title[0] != "{" and title[len(title)-1] != "}":
-            title = "{" + title + "}"
-        if bib['title'] != title:
-            if verbosity > 1:
-                print(ck + ": Added brackets to title: " + title)
-            bib['title'] = title
-            updated = True
-
-    assert type(bib['ID']) == str
-
-    return updated
+def style_ck(ck):
+    return click.style(ck, fg="blue")
