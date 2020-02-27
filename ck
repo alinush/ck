@@ -545,7 +545,7 @@ def ck_open_cmd(ctx, filename):
             print(file_to_string(fullpath).strip())
 
             # warn if bib file is missing 'ckdateadded' field
-            bibtex = bibread(fullpath)
+            bibtex = bib_read(fullpath)
 
             if 'ckdateadded' not in bibtex.entries[0]:
                 if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
