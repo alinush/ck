@@ -204,6 +204,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     # get domain of website and handle it accordingly
     handlers = dict()
     handlers["link.springer.com"] = springerlink_handler
+    handlers["rd.springer.com"] = springerlink_handler
     handlers["eprint.iacr.org"]   = iacreprint_handler
     handlers["dl.acm.org"]        = dlacm_handler
     # e.g., https://epubs.siam.org/doi/abs/10.1137/S0036144502417715
@@ -278,8 +279,8 @@ def ck_queue_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
-        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/to-read")
-        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/finished,queue/reading")
+        ctx.invoke(ck_tag_cmd, silent=True, citation_key=citation_key, tags="queue/to-read")
+        ctx.invoke(ck_untag_cmd, silent=True, citation_key=citation_key, tags="queue/finished,queue/reading")
     else:
         click.secho("Papers that remain to be read:", bold=True)
         click.echo()
@@ -296,7 +297,7 @@ def ck_dequeue_cmd(ctx, citation_key):
     ck_bib_dir = ctx.obj['BibDir']
     ck_tag_dir = ctx.obj['TagDir']
 
-    ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read")
+    ctx.invoke(ck_untag_cmd, silent=True, citation_key=citation_key, tags="queue/to-read")
 
 @ck.command('read')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -309,8 +310,8 @@ def ck_read_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
-        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/finished")
-        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/reading")
+        ctx.invoke(ck_untag_cmd, silent=True, citation_key=citation_key, tags="queue/to-read,queue/finished")
+        ctx.invoke(ck_tag_cmd, silent=True, citation_key=citation_key, tags="queue/reading")
         ctx.invoke(ck_open_cmd, filename=citation_key + ".pdf")
     else:
         click.secho("Papers you are currently reading:", bold=True)
@@ -329,8 +330,8 @@ def ck_finished_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['TagDir']
 
     if citation_key is not None:
-        ctx.invoke(ck_untag_cmd, citation_key=citation_key, tags="queue/to-read,queue/reading")
-        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags="queue/finished")
+        ctx.invoke(ck_untag_cmd, silent=True, citation_key=citation_key, tags="queue/to-read,queue/reading")
+        ctx.invoke(ck_tag_cmd, silent=True, citation_key=citation_key, tags="queue/finished")
     else:
         click.secho("Papers you have finished reading:", bold=True)
         click.echo()
@@ -343,10 +344,15 @@ def ck_finished_cmd(ctx, citation_key):
     is_flag=True,
     default=False,
     help='Do not prompt for confirmation when removing all tags')
+@click.option(
+    '-s', '--silent',
+    is_flag=True,
+    default=False,
+    help='Does not display error message when paper was not tagged.')
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tags', required=False, type=click.STRING)
 @click.pass_context
-def ck_untag_cmd(ctx, force, citation_key, tags):
+def ck_untag_cmd(ctx, force, silent, citation_key, tags):
     """Untags the specified paper."""
 
     ctx.ensure_object(dict)
@@ -387,7 +393,9 @@ def ck_untag_cmd(ctx, force, citation_key, tags):
                 if untag_paper(ck_tag_dir, citation_key, tag):
                     click.secho("Removed '" + tag + "' tag", fg="green")
                 else:
-                    click.secho("Not tagged with '" + tag + "' tag", fg="red", err=True)
+                    # When invoked by ck_{queue/read/finished}_cmd, we want this silenced
+                    if not silent:
+                        click.secho("Was not tagged with '" + tag + "' tag to begin with", fg="red", err=True)
         else:
             if force or click.confirm("Are you sure you want to remove ALL tags for " + click.style(citation_key, fg="blue") + "?"):
                 if untag_paper(ck_tag_dir, citation_key):
@@ -423,10 +431,15 @@ def ck_tags_cmd(ctx):
     print_all_tags(ck_tag_dir)
 
 @ck.command('tag')
+@click.option(
+    '-s', '--silent',
+    is_flag=True,
+    default=False,
+    help='Does not display error message when paper is already tagged.')
 @click.argument('citation_key', required=True, type=click.STRING)
 @click.argument('tags', required=False, type=click.STRING)
 @click.pass_context
-def ck_tag_cmd(ctx, citation_key, tags):
+def ck_tag_cmd(ctx, silent, citation_key, tags):
     """Tags the specified paper"""
 
     ctx.ensure_object(dict)
@@ -436,11 +449,14 @@ def ck_tag_cmd(ctx, citation_key, tags):
     ck_tags    = ctx.obj['tags']
 
     if tags is None:
+        # returns array of tags
         tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
     else:
+        # parses comma-separated tag string into an array of tags
         tags = parse_tags(tags)
 
-    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
+    #if not silent:
+    #    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
 
     if not ck_exists(ck_bib_dir, citation_key):
         click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
@@ -450,7 +466,9 @@ def ck_tag_cmd(ctx, citation_key, tags):
         if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):
             click.secho("Added '" + tag + "' tag", fg="green")
         else:
-            click.secho("ERROR: " + citation_key + " already has '" + tag + "' tag", fg="red", err=True)
+            # When invoked by ck_{queue/read/finished}_cmd, we want this silenced
+            if not silent:
+                click.secho(citation_key + " already has '" + tag + "' tag", fg="red", err=True)
 
 @ck.command('rm')
 @click.option(
@@ -514,22 +532,19 @@ def ck_open_cmd(ctx, filename):
     ck_text_editor = ctx.obj['TextEditor']
     ck_tags        = ctx.obj['tags']
 
-    basename, extension = os.path.splitext(filename)
+    citation_key, extension = os.path.splitext(filename)
 
     if len(extension.strip()) == 0:
-        filename = basename + ".pdf"
+        filename = citation_key + ".pdf"
         extension = '.pdf'
         
     fullpath = os.path.join(ck_bib_dir, filename)
 
-    if basename in ck_tags:
-        print_tags(ck_tags[basename])
-    else:
-        click.secho("No tags yet for '" + basename + "'", fg="red")
+    ctx.invoke(ck_info_cmd, citation_key=citation_key)
 
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
-            click.secho("ERROR: " + basename + " paper is NOT in the library as a PDF", fg="red", err=True)
+            click.secho("ERROR: " + citation_key + " paper is NOT in the library as a PDF", fg="red", err=True)
             sys.exit(1)
 
         # not interested in output
@@ -556,7 +571,7 @@ def ck_open_cmd(ctx, filename):
         os.system('cd "' + ck_bib_dir + '" && ' + ck_text_editor + ' "' + filename + '"')
     elif extension.lower() == '.html':
         if os.path.exists(fullpath) is False:
-            click.secho("ERROR: No HTML notes in the library for '" + basename + "'", fg="red", err=True)
+            click.secho("ERROR: No HTML notes in the library for '" + citation_key + "'", fg="red", err=True)
             sys.exit(1)
 
         completed = subprocess.run(

@@ -104,10 +104,10 @@ def style_tags(taglist):
 
     return tagstr
 
-def parse_tags(tags):
-    tags = tags.split(',')
+def parse_tags(tags_str):
+    tags = tags_str.split(',')
     tags = [t.strip() for t in tags]
-    tags = filter(lambda t: len(t) > 0, tags)
+    tags = list(filter(lambda t: len(t) > 0, tags))
     return tags
 
 def prompt_for_tags(prompt):
@@ -123,7 +123,7 @@ def untag_paper(ck_tag_dir, citation_key, tag=None):
             os.remove(filepath)
             return True
         else:
-            print(filepath + " does not exist!")
+            #print(filepath + " does not exist!")
             return False
     else:
         untagged = False
