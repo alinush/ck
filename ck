@@ -68,27 +68,36 @@ def ck(ctx, config_file, verbose):
 
     # read configuration
     if verbose > 0:
-        print("Reading CK config file at", config_file)
+        click.echo("Verbosity level: " + str(verbose))
+        click.echo("Reading CK config file at " + config_file)
+
+        if verbose > 1:
+            if os.path.exists(config_file):
+                print(file_to_string(config_file).strip())
+            else:
+                click.secho("ERROR: CK config file does not exist", fg="red")
+
     config = configparser.ConfigParser()
     with open(config_file, 'r') as f:
         config.read_file(f)
 
-    if verbose > 1:
+    if verbose > 2:
         print("Configuration sections:", config.sections())
 
     # set a context with various config params that we pass around to the subcommands
     ctx.ensure_object(dict)
-    ctx.obj['verbosity']    = verbose
-    ctx.obj['BibDir']       = config['default']['ck_bib_dir']
-    ctx.obj['TagDir']       = config['default']['ck_tag_dir']
-    ctx.obj['TextEditor']   = config['default']['ck_text_editor']
-    ctx.obj['tags']         = find_tagged_pdfs(ctx.obj['TagDir'], verbose)
+    ctx.obj['verbosity']      = verbose
+    ctx.obj['BibDir']         = config['default']['BibDir']
+    ctx.obj['TagDir']         = config['default']['TagDir']
+    ctx.obj['TextEditor']     = config['default']['TextEditor']
+    ctx.obj['MarkdownEditor'] = config['default']['MarkdownEditor']
+    ctx.obj['tags']           = find_tagged_pdfs(ctx.obj['TagDir'], verbose)
 
     # set command to open PDFs with
     if sys.platform.startswith('linux'):
-        ctx.obj['ck_open'] = 'xdg-open'
+        ctx.obj['OpenCmd'] = 'xdg-open'
     elif sys.platform == 'darwin':
-        ctx.obj['ck_open'] = 'open'
+        ctx.obj['OpenCmd'] = 'open'
     else:
         click.secho("ERROR: " + sys.platform + " is not supported", fg="red", err=True)
         sys.exit(1)
@@ -265,8 +274,6 @@ def ck_config_cmd(ctx):
 
     fullpath = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
     os.system(ck_text_editor + " \"" + fullpath + "\"")
-    if os.path.exists(fullpath):
-        print(file_to_string(fullpath).strip())
 
 @ck.command('queue')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -525,12 +532,13 @@ def ck_open_cmd(ctx, filename):
     """Opens the .pdf or .bib file."""
 
     ctx.ensure_object(dict)
-    verbosity      = ctx.obj['verbosity']
-    ck_bib_dir     = ctx.obj['BibDir']
-    ck_tag_dir     = ctx.obj['TagDir']
-    ck_open        = ctx.obj['ck_open']
-    ck_text_editor = ctx.obj['TextEditor']
-    ck_tags        = ctx.obj['tags']
+    verbosity          = ctx.obj['verbosity']
+    ck_bib_dir         = ctx.obj['BibDir']
+    ck_tag_dir         = ctx.obj['TagDir']
+    ck_open            = ctx.obj['OpenCmd']
+    ck_text_editor     = ctx.obj['TextEditor']
+    ck_markdown_editor = ctx.obj['MarkdownEditor']
+    ck_tags            = ctx.obj['tags']
 
     citation_key, extension = os.path.splitext(filename)
 
@@ -568,7 +576,7 @@ def ck_open_cmd(ctx, filename):
 
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
-        os.system('cd "' + ck_bib_dir + '" && ' + ck_text_editor + ' "' + filename + '"')
+        os.system('cd "' + ck_bib_dir + '" && ' + ck_markdown_editor + ' "' + filename + '"')
     elif extension.lower() == '.html':
         if os.path.exists(fullpath) is False:
             click.secho("ERROR: No HTML notes in the library for '" + citation_key + "'", fg="red", err=True)

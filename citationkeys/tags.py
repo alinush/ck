@@ -27,7 +27,7 @@ def find_tagged_pdfs_helper(root_tag_dir, tag_subdir, pdfs, verbosity):
             citation_key, extension = os.path.splitext(relpath)
             tagname = os.path.relpath(os.path.dirname(fullpath), root_tag_dir)
 
-            if verbosity > 1:
+            if verbosity > 3:
                 print("CK:", citation_key)
                 print("Tagname:", tagname)
                 print("Symlink:", fullpath)
