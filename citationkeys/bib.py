@@ -35,7 +35,7 @@ def canonicalize_bibtex(ck, bibtex, verbosity):
             updated = True
 
         title  = bib['title'].strip()
-        if title[0] != "{" and title[len(title)-1] != "}":
+        if len(title) > 0 and title[0] != "{" and title[len(title)-1] != "}":
             title = "{" + title + "}"
         if bib['title'] != title:
             if verbosity > 1:

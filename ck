@@ -548,7 +548,9 @@ def ck_open_cmd(ctx, filename):
         
     fullpath = os.path.join(ck_bib_dir, filename)
 
-    ctx.invoke(ck_info_cmd, citation_key=citation_key)
+    # The BibTeX might be in bad shape (that's why the user is using ck_open_cmd to edit) so ck_info_cmd, might throw
+    if extension.lower() != '.bib':
+        ctx.invoke(ck_info_cmd, citation_key=citation_key)
 
     if extension.lower() == '.pdf':
         if os.path.exists(fullpath) is False:
@@ -564,15 +566,20 @@ def ck_open_cmd(ctx, filename):
         # TODO: check for failure in completed.returncode
     elif extension.lower() == '.bib':
         os.system(ck_text_editor + " " + fullpath)
+
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
 
             # warn if bib file is missing 'ckdateadded' field
-            bibtex = bib_read(fullpath)
+            try:
+                bibtex = bib_read(fullpath)
 
-            if 'ckdateadded' not in bibtex.entries[0]:
-                if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
-                    bib_set_dateadded(fullpath, None)
+                if 'ckdateadded' not in bibtex.entries[0]:
+                    if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
+                        bib_set_dateadded(fullpath, None)
+            except:
+                click.secho('WARNING: Could not parse BibTeX:', fg='red')
+                traceback.print_exc()
 
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
