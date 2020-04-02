@@ -23,6 +23,7 @@ import configparser
 import glob
 import os
 import pyperclip
+import re
 import subprocess
 import shutil
 import sys
@@ -650,6 +651,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         bib = bibtex.entries[0]
         title = bib['title'].strip("{}")
         authors = bib['author']
+        year = bib['year']
         authors = authors.replace("{", "")
         authors = authors.replace("}", "")
         citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
@@ -667,8 +669,27 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         if venue != None:
             to_copy = to_copy + ", *in " + venue + "*"
 
-        year = bib['year']
         to_copy = to_copy +  ", " + year
+
+        url = None
+        urlbibkey = None
+        if 'note' in bib and '\\url' in bib['note']:
+            urlbibkey = 'note'
+        elif 'howpublished' in bib and '\\url' in bib['howpublished']:
+            urlbibkey = 'howpublished'
+        elif 'url' in bib:
+            url = bib['url']
+        elif 'eprint' in bib and ('http://' in bib['eprint'] or 'https://' in bib['eprint']):
+            # NOTE: Sometimes this is not a URL, just an eprint ID number, so have to check 'http' in bib['eprint']
+            url = bib['eprint']
+
+        if urlbibkey is not None:
+            m = re.search("\\\\url{(.*)}", bib[urlbibkey])
+            url = m.group(1)
+
+        if url is not None:
+            mdurl = "[[URL]](" + url + ")"
+            to_copy = to_copy + ", " + mdurl
 
     print(to_copy)
 
