@@ -373,27 +373,19 @@ def ck_untag_cmd(ctx, force, silent, citation_key, tags):
         # If no paper was specified, detects untagged papers and asks the user to tag them.
         untagged_pdfs = find_untagged_pdfs(ck_bib_dir, ck_tag_dir, list_cks(ck_bib_dir), ck_tags.keys(), verbosity)
         if len(untagged_pdfs) > 0:
-            sys.stdout.write("Untagged papers: ")
-            first_iter = True
-            for (filepath, citation_key) in sorted(untagged_pdfs):
-                if not first_iter:
-                    sys.stdout.write(", ")
-                sys.stdout.write(citation_key)
-                sys.stdout.flush()
-
-                first_iter = False
-            sys.stdout.write("\b\b")
-            print('\n')
-
+            sys.stdout.write("Untagged papers:\n")
             for (filepath, citation_key) in untagged_pdfs:
                 # display paper info
-                ctx.invoke(ck_bib_cmd, citation_key=citation_key, clipboard=False)
+                ctx.invoke(ck_info_cmd, citation_key=citation_key)
+            click.echo()
+
+            for (filepath, citation_key) in untagged_pdfs:
                 # display all tags 
                 ctx.invoke(ck_tags_cmd)
                 # prompt user to tag paper
                 ctx.invoke(ck_tag_cmd, citation_key=citation_key)
         else:
-            print("No untagged papers.")
+            click.echo("No untagged papers.")
     else:
         if tags is not None:
             tags = parse_tags(tags)
@@ -456,19 +448,21 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
     ck_tag_dir = ctx.obj['TagDir']
     ck_tags    = ctx.obj['tags']
 
+    #if not silent:
+    #    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
+
+    ctx.invoke(ck_info_cmd, citation_key=citation_key)
+
+    if not ck_exists(ck_bib_dir, citation_key):
+        click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
+        sys.exit(1)
+
     if tags is None:
         # returns array of tags
         tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
     else:
         # parses comma-separated tag string into an array of tags
         tags = parse_tags(tags)
-
-    #if not silent:
-    #    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
-
-    if not ck_exists(ck_bib_dir, citation_key):
-        click.secho("ERROR: " + citation_key + " has no PDF file", fg="red", err=True)
-        sys.exit(1)
 
     for tag in tags:
         if tag_paper(ck_tag_dir, ck_bib_dir, citation_key, tag):

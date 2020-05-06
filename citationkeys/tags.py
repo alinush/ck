@@ -111,7 +111,7 @@ def parse_tags(tags_str):
     return tags
 
 def prompt_for_tags(prompt):
-    tags_str = click.prompt(prompt)
+    tags_str = click.prompt(text=prompt, default="", show_default=False)
     return parse_tags(tags_str)
 
 # if tag is None, removes all tags for the paper
