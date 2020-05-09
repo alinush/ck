@@ -26,7 +26,7 @@ import sys
 import tempfile
 import urllib
 
-def get_url(opener, url, verbosity, user_agent):
+def get_url(opener, url, verbosity, user_agent, restrict_content_type=None):
     # TODO: handle 403 error and display HTML returned
     if verbosity > 0:
         print("Downloading URL:", url)
@@ -35,7 +35,13 @@ def get_url(opener, url, verbosity, user_agent):
         raise "Please specify a user agent"
 
     try:
-        response = opener.open(Request(url, headers={'User-Agent': user_agent}))
+        req = Request(url, headers={'User-Agent': user_agent})
+        response = opener.open(req)
+        content_type = response.getheader("Content-Type")
+        #click.echo("Content-Type: " + str(content_type))
+        # throw if bad content type
+        if restrict_content_type is not None and content_type != restrict_content_type:
+            raise "Expected this to be URL to a PDF, but got '" + content_type + "' Content-Type"
     except urllib.error.HTTPError as err:
         print("HTTP Error Code: ", err.code)
         print("HTTP Error Reason: ", err.reason)
@@ -69,7 +75,7 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
             output.write(data)
 
     if pdfurl is not None:
-        data = get_url(opener, pdfurl, verbosity, user_agent)
+        data = get_url(opener, pdfurl, verbosity, user_agent, "application/pdf")
 
         with open(destpdffile, 'wb') as output:
             output.write(data)

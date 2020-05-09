@@ -47,6 +47,11 @@ def canonicalize_bibtex(ck, bibtex, verbosity):
 
     return updated
 
+def bib_new(citation_key, entry_type):
+    bibtex = bibtexparser.bibdatabase.BibDatabase()
+    bibtex.entries = [ { 'ID': citation_key, 'ENTRYTYPE': entry_type } ]
+    return bibtex
+
 def bib_read(destbibfile):
     with open(destbibfile) as bibf:
         # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.

@@ -228,12 +228,12 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     no_index_html["eprint.iacr.org"] = True
 
     domain = parsed_url.netloc
-    if domain in handlers:
-        cj = CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    cj = CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    user_agent = UserAgent().random
+    parser = "lxml"
 
-        user_agent = UserAgent().random
-        parser = "lxml"
+    if domain in handlers:
         soup = None
         index_html = None
         # e.g., we never download the index page for IACR ePrint
@@ -246,10 +246,21 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
         # TODO: if no CK specified, prompt the user for one
         handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
     else:
-        click.secho("ERROR: Cannot handle URLs from '" + domain + "' yet.", fg="red", err=True)
-        sys.exit(1)
+        click.echo("No handler for URL was found. Trying to download as PDF...")
+        download_pdf(opener, user_agent, url, destpdffile, verbosity)
+
+        # create bib file template
+        bibtex = bib_new(citation_key, "misc")
+        bibtex.entries[0]['howpublished'] = '\\url{' + url + '}'
+        bibtex.entries[0]['author'] = ''
+        bibtex.entries[0]['year'] = ''
+        bibtex.entries[0]['title'] = ''
+        bib_write(destbibfile, bibtex)
+        # let the user update the bib file details
+        ctx.invoke(ck_open_cmd, filename=destbibfile)
 
     if not no_rename_ck:
+        # TODO: inefficient, reading bibfile multiple times
         # change the citation key in the .bib file to citation_key
         bib_rename_ck(destbibfile, citation_key)
 
@@ -564,13 +575,17 @@ def ck_open_cmd(ctx, filename):
 
         if os.path.exists(fullpath):
             print(file_to_string(fullpath).strip())
-
-            # warn if bib file is missing 'ckdateadded' field
+        
             try:
+                # TODO: inefficient, reading bib file multiple times
+                bib_rename_ck(fullpath, citation_key)
+
                 bibtex = bib_read(fullpath)
 
+                # warn if bib file is missing 'ckdateadded' field
                 if 'ckdateadded' not in bibtex.entries[0]:
                     if click.confirm("\nWARNING: BibTeX is missing 'ckdateadded'. Would you like to set it to the current time?"):
+                        # TODO: inefficient, reading bibfile twice
                         bib_set_dateadded(fullpath, None)
             except:
                 click.secho('WARNING: Could not parse BibTeX:', fg='red')
