@@ -9,6 +9,7 @@ from .tags import style_tags
 import bibtexparser
 import click
 import os
+import re
 import sys
 import traceback
 
@@ -59,6 +60,26 @@ def bib_read(destbibfile):
         bibtex = bibtexparser.load(bibf, parser)
 
         return bibtex
+
+# this takes a single 'bibtex[i]' entry (not a vector 'bibtex') as input
+def bib_get_url(bib):
+    url = None
+    urlbibkey = None
+    if 'note' in bib and '\\url' in bib['note']:
+        urlbibkey = 'note'
+    elif 'howpublished' in bib and '\\url' in bib['howpublished']:
+        urlbibkey = 'howpublished'
+    elif 'url' in bib:
+        url = bib['url']
+    elif 'eprint' in bib and ('http://' in bib['eprint'] or 'https://' in bib['eprint']):
+        # NOTE: Sometimes this is not a URL, just an eprint ID number, so have to check 'http' in bib['eprint']
+        url = bib['eprint']
+
+    if urlbibkey is not None:
+        m = re.search("\\\\url{(.*)}", bib[urlbibkey])
+        url = m.group(1)
+
+    return url
 
 def bib_write(destbibfile, bibtex):
     with open(destbibfile, 'w') as bibf:

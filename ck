@@ -23,7 +23,6 @@ import configparser
 import glob
 import os
 import pyperclip
-import re
 import subprocess
 import shutil
 import sys
@@ -680,22 +679,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
 
         to_copy = to_copy +  ", " + year
 
-        url = None
-        urlbibkey = None
-        if 'note' in bib and '\\url' in bib['note']:
-            urlbibkey = 'note'
-        elif 'howpublished' in bib and '\\url' in bib['howpublished']:
-            urlbibkey = 'howpublished'
-        elif 'url' in bib:
-            url = bib['url']
-        elif 'eprint' in bib and ('http://' in bib['eprint'] or 'https://' in bib['eprint']):
-            # NOTE: Sometimes this is not a URL, just an eprint ID number, so have to check 'http' in bib['eprint']
-            url = bib['eprint']
-
-        if urlbibkey is not None:
-            m = re.search("\\\\url{(.*)}", bib[urlbibkey])
-            url = m.group(1)
-
+        url = bib_get_url(bib)
         if url is not None:
             mdurl = "[[URL]](" + url + ")"
             to_copy = to_copy + ", " + mdurl
@@ -848,8 +832,14 @@ def ck_cleanbib_cmd(ctx):
 @ck.command('list')
 #@click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
 @click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+@click.option(
+    '-u', '--url',
+    is_flag=True,
+    default=False,
+    help='Includes the URLs next to each paper'
+    )
 @click.pass_context
-def ck_list_cmd(ctx, pathnames):
+def ck_list_cmd(ctx, pathnames, url):
     """Lists all citation keys in the library"""
 
     ctx.ensure_object(dict)
@@ -867,7 +857,7 @@ def ck_list_cmd(ctx, pathnames):
 
     sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
 
-    print_ck_tuples(sorted_cks, ck_tags)
+    print_ck_tuples(sorted_cks, ck_tags, url)
 
     print()
     print(str(len(cks)) + " PDFs listed")

@@ -4,6 +4,7 @@
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
+from .bib import bib_get_url
 
 # NOTE: Alphabetical order please
 import bibtexparser
@@ -108,8 +109,9 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             title  = bib['title'].strip("{}")
             year   = bib['year']
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
+            url    = bib_get_url(bib)
 
-            ck_tuples.append((ck, author, title, year, date))
+            ck_tuples.append((ck, author, title, year, date, url))
 
         except FileNotFoundError:
             click.secho(ck + ": Missing BibTeX file in directory " + ck_bib_dir, fg="red", err=True)
@@ -120,8 +122,8 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
 
     return ck_tuples
 
-def print_ck_tuples(cks, tags):
-    for (ck, author, title, year, date) in cks:
+def print_ck_tuples(cks, tags, include_url=False):
+    for (ck, author, title, year, date, url) in cks:
         click.secho(ck, fg='blue', nl=False)
         click.echo(", ", nl=False)
         click.secho(title, fg='green', nl=False)
@@ -138,6 +140,10 @@ def print_ck_tuples(cks, tags):
         if ck in tags:
             click.echo(', ', nl=False)
             click.echo(style_tags(tags[ck]), nl=False)
+
+        if include_url:
+            click.echo(', ', nl=False)
+            click.echo(url, nl=False)
         click.echo()
 
         #print(ck + ": " + title + " by " + author + ", " + year + date)
