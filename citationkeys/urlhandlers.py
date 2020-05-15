@@ -26,7 +26,7 @@ import sys
 import tempfile
 import urllib
 
-def get_url(opener, url, verbosity, user_agent, restrict_content_type=None):
+def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extra_headers={}):
     # TODO: handle 403 error and display HTML returned
     if verbosity > 0:
         print("Downloading URL:", url)
@@ -35,13 +35,14 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None):
         raise "Please specify a user agent"
 
     try:
-        req = Request(url, headers={'User-Agent': user_agent})
+        extra_headers['User-Agent'] = user_agent
+        req = Request(url, headers=extra_headers)
         response = opener.open(req)
         content_type = response.getheader("Content-Type")
         #click.echo("Content-Type: " + str(content_type))
         # throw if bad content type
-        if restrict_content_type is not None and content_type != restrict_content_type:
-            raise "Expected this to be URL to a PDF, but got '" + content_type + "' Content-Type"
+        if restrict_content_type is not None and content_type.startswith(restrict_content_type) is False:
+            raise RuntimeError("Expected this to be URL to a PDF, but got '" + content_type + "' Content-Type")
     except urllib.error.HTTPError as err:
         print("HTTP Error Code: ", err.code)
         print("HTTP Error Reason: ", err.reason)
@@ -80,8 +81,37 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
         with open(destpdffile, 'wb') as output:
             output.write(data)
 
-
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+    path = parsed_url.path.split('/')[2:]
+    doi = path[0] + '/' + path[1]
+
+    if verbosity > 0:
+        print("ACM DL paper DOI:", doi)
+    # first, we scrape the PDF link
+    elem = soup.find('a', attrs={"title": "PDF"})
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    pdfurl = url_prefix + elem.get('href')
+    if verbosity > 0:
+        print("ACM DL paper PDF URL:", pdfurl)
+
+    download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
+
+    # ugh, the new dl.acm.org has no easy way of getting the BibTeX AFAICT, so using something else
+    biburl = "http://doi.org/" + doi
+    if verbosity > 0:
+        print("ACM DL paper bib URL:", biburl)
+    bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
+
+    if verbosity > 1:
+        # Assuming UTF8 encoding. Will pay for this later, rest assured.
+        bibtex_str = bibtex.decode("utf-8")
+        print("ACM DL paper BibTeX: ", bibtex_str)
+
+    with open(destbibfile, 'wb') as output:
+        output.write(bibtex)
+
+# Deprecated, since DL ACM website changed in 2019/2020.
+def dlacm_handler_old(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
 
     # sometimes the URL might have ?doid=<parentid>.<id> rather than just ?doid=<id>
