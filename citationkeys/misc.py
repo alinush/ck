@@ -141,7 +141,7 @@ def print_ck_tuples(cks, tags, include_url=False):
             click.echo(', ', nl=False)
             click.echo(style_tags(tags[ck]), nl=False)
 
-        if include_url:
+        if include_url and url is not None:
             click.echo(', ', nl=False)
             click.echo(url, nl=False)
         click.echo()
