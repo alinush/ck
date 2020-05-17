@@ -425,7 +425,8 @@ def ck_info_cmd(ctx, citation_key):
     ck_tag_dir = ctx.obj['TagDir']
     ck_tags    = ctx.obj['tags']
 
-    print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags)
+    include_url = True
+    print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags, include_url)
 
 @ck.command('tags')
 @click.pass_context
@@ -785,7 +786,8 @@ def ck_search_cmd(ctx, query, case_sensitive):
                     cks.add(filename)
 
     if len(cks) > 0:
-        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags)
+        include_url = True
+        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags, include_url)
     else:
         print("No matches!")
 
