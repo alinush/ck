@@ -161,6 +161,30 @@ def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     with open(destbibfile, 'wb') as output:
         output.write(bibtex.encode('utf-8'))
 
+def sciencedirect_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+    elem = soup.find("head").find("meta", attrs={"name": "citation_pdf_url"})
+    pdf_redirect_url = elem['content']
+    if verbosity > 0:
+        click.echo("PDF redirect URL: " + str(pdf_redirect_url))
+
+    elem = soup.find("head").find("meta", attrs={"name": "citation_pii"})
+    pii = elem['content']
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    biburl = url_prefix + "/sdfe/arp/cite?pii=" + pii + "&format=text/x-bibtex&withabstract=True"
+
+    if verbosity > 0:
+        click.echo("BibTeX URL: " + str(biburl))
+
+    html = get_url(opener, pdf_redirect_url, verbosity, user_agent)
+    html = html.decode('utf-8')
+    substr = "window.location = '"
+    pdfurl = html[html.find(substr) + len(substr):]
+    pdfurl = pdfurl[0 : pdfurl.find("'")]
+    if verbosity > 0:
+        click.echo("PDF URL: " + str(pdfurl))
+
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+
 def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
