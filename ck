@@ -198,14 +198,6 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
-    if os.path.exists(destpdffile):
-        click.secho("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red", err=True)
-        sys.exit(1)
-    
-    if os.path.exists(destbibfile):
-        click.secho("ERROR: " + destbibfile + " already exists. Pick a different citation key.", fg="red", err=True)
-        sys.exit(1)
-
     parsed_url = urlparse(url)
     if verbosity > 0:
         print("Paper's URL:", parsed_url)
@@ -220,7 +212,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     handlers["epubs.siam.org"] = epubssiam_handler
     handlers["ieeexplore.ieee.org"] = ieeexplore_handler
     handlers["www.sciencedirect.com"] = sciencedirect_handler
-    handlers["sciencedirect.com"] = handlers["www.sciencedirect.com"] 
+    handlers["sciencedirect.com"] = handlers["www.sciencedirect.com"]
 
     # TODO: Cornell arXiv. See https://arxiv.org/help/api/index.
 
@@ -233,7 +225,16 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
     user_agent = UserAgent().random
     parser = "lxml"
 
+    if os.path.exists(destpdffile):
+        click.secho("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red", err=True)
+        sys.exit(1)
+
     if domain in handlers:
+        # when downloading just the PDF in the 'else' branch of this 'if', we shouldn't care if a .bib file already exists
+        if os.path.exists(destbibfile):
+            click.secho("ERROR: " + destbibfile + " already exists. Pick a different citation key.", fg="red", err=True)
+            sys.exit(1)
+
         soup = None
         index_html = None
         # e.g., we never download the index page for IACR ePrint
@@ -249,13 +250,16 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
         click.echo("No handler for URL was found. Trying to download as PDF...")
         download_pdf(opener, user_agent, url, destpdffile, verbosity)
 
-        # create bib file template
-        bibtex = bib_new(citation_key, "misc")
-        bibtex.entries[0]['howpublished'] = '\\url{' + url + '}'
-        bibtex.entries[0]['author'] = ''
-        bibtex.entries[0]['year'] = ''
-        bibtex.entries[0]['title'] = ''
-        bib_write(destbibfile, bibtex)
+        # we might already have a bib file for this, so don't overwrite it if we do
+        if not os.path.exists(destbibfile):
+            # create bib file template
+            bibtex = bib_new(citation_key, "misc")
+            bibtex.entries[0]['howpublished'] = '\\url{' + url + '}'
+            bibtex.entries[0]['author'] = ''
+            bibtex.entries[0]['year'] = ''
+            bibtex.entries[0]['title'] = ''
+            bib_write(destbibfile, bibtex)
+
         # let the user update the bib file details
         ctx.invoke(ck_open_cmd, filename=destbibfile)
 
