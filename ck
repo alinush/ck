@@ -282,7 +282,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
         ctx.invoke(ck_open_cmd, filename=destbibfile)
 
     if tmpCK:
-            bib_entry = defaultdict(lambda _: '', bib_read(destbibfile).entries[0])
+            bib_entry = defaultdict(lambda : '', bib_read(destbibfile).entries[0])
             if keep_bibtex_id and 'ID' in bib_entry:
                 no_rename_ck = True
                 citation_key = bib_entry['ID']
@@ -292,8 +292,10 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
                                 bib_entry['title'].split(' ')[0].lower() # google-scholar-like
                 citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
             click.secho('Using citation key %s' % citation_key, fg="yellow")
+            
             os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
             os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
+
             destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
             destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
