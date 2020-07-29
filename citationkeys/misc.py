@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
@@ -98,7 +99,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             #print(bibtex.entries)
             #print("Comments: ")
             #print(bibtex.comments)
-            bib = bibtex.entries[0]
+            bib = defaultdict(lambda key: '', bibtex.entries[0])
 
             # make sure the CK in the .bib matches the filename
             bck = bib['ID']

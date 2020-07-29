@@ -23,8 +23,10 @@ import configparser
 import glob
 import os
 import pyperclip
+import random
 import subprocess
 import shutil
+import string
 import sys
 import traceback
 import urllib
@@ -166,7 +168,7 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
-@click.argument('citation_key', required=True, type=click.STRING)
+@click.argument('citation_key', required=False, type=click.STRING)
 @click.option(
     '-n', '--no-tag-prompt',
     is_flag=True,
@@ -179,8 +181,14 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     default=False,
     help='Does not rename the CK in the .bib file.'
     )
+@click.option(
+    '-b', '--keep-bibtex-id',
+    is_flag=True,
+    default=False,
+    help='Keep the id from the .bib file.'
+)
 @click.pass_context
-def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
+def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_id):
     """Adds the paper to the library (.pdf and .bib file)."""
 
     # TODO: come up with CK automatically if not specified & make sure it's unique (unclear how to handle eprint version of the same paper)
@@ -195,6 +203,11 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
 
     # Make sure paper doesn't exist in the library first
     # TODO: save to temp file, so you can first display abstract with author names and prompt the user for the "Citation Key" rather than giving it as an arg
+    tmpCK = False
+    if not citation_key:
+        citation_key = ''.join(random.sample(string.ascii_lowercase, 8))
+        tmpCK = True
+
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
@@ -246,6 +259,22 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck):
         # TODO: display abstract
         # TODO: if no CK specified, prompt the user for one
         handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
+        if tmpCK:
+            bib_entry = defaultdict(lambda _: '', bib_read(destbibfile).entries[0])
+            if keep_bibtex_id and 'ID' in bib_entry:
+                no_rename_ck = True
+                citation_key = bib_entry['ID']
+            else:
+                citation_key = bib_entry['author'].split(' ')[0].lower() + \
+                                bib_entry['year'] + \
+                                bib_entry['title'].split(' ')[0].lower() # google-scholar-like
+                citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
+            click.secho('Using citation key %s' % citation_key, fg="yellow")
+            os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
+            os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
+            destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
+            destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+
     else:
         click.echo("No handler for URL was found. Trying to download as PDF...")
         download_pdf(opener, user_agent, url, destpdffile, verbosity)

@@ -83,7 +83,12 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
 
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     path = parsed_url.path.split('/')[2:]
-    doi = path[0] + '/' + path[1]
+    if len(path) > 1:
+        doi = path[0] + '/' + path[1]
+    elif 'doid' in parsed_url.query:
+        doi = '10.1145/' + parsed_url.query.split('=')[1] # 10.1145/doid
+    else:
+        assert(False)
 
     if verbosity > 0:
         print("ACM DL paper DOI:", doi)
