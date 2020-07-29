@@ -208,6 +208,36 @@ def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, dest
 
     download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
 
+# https://arxiv.org/pdf/XXXX.XXXX.pdf
+# https://arxiv.org/abs/XXXX.XXXX
+def arxiv_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+    if '.pdf' in parsed_url.path:
+        paper_id = parsed_url.path[len('/pdf/'):-len('.pdf')]    
+    elif '/abs' in parsed_url.path:
+        paper_id = parsed_url.path[len('/abs/'):]
+    else:
+        assert(False) # not implemented yet
+    
+    paper_id = paper_id.strip('/')
+    
+    print("Paper ID:", paper_id)
+
+    pdfurl = 'https://arxiv.org/pdf/%s.pdf' % paper_id
+    index_html = get_url(opener, 'https://arxiv2bibtex.org/?q=' + paper_id + '&format=bibtex', verbosity, user_agent)
+    soup = BeautifulSoup(index_html, parser)
+    bibtex = soup.select_one('#bibtex > textarea').get_text().strip()
+
+    with open(destbibfile, 'w') as output:
+            output.write(bibtex)
+
+    biburl = None
+    
+    #elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
+    # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
+
+    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+
+
 def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path

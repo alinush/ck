@@ -24,6 +24,7 @@ import glob
 import os
 import pyperclip
 import random
+import re
 import subprocess
 import shutil
 import string
@@ -220,6 +221,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     # get domain of website and handle it accordingly
     handlers = dict()
     handlers["link.springer.com"] = springerlink_handler
+    handlers["arxiv.org"] = arxiv_handler
     handlers["rd.springer.com"] = springerlink_handler
     handlers["eprint.iacr.org"]   = iacreprint_handler
     handlers["dl.acm.org"]        = dlacm_handler
@@ -261,21 +263,6 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
         # TODO: display abstract
         # TODO: if no CK specified, prompt the user for one
         handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
-        if tmpCK:
-            bib_entry = defaultdict(lambda _: '', bib_read(destbibfile).entries[0])
-            if keep_bibtex_id and 'ID' in bib_entry:
-                no_rename_ck = True
-                citation_key = bib_entry['ID']
-            else:
-                citation_key = bib_entry['author'].split(' ')[0].lower() + \
-                                bib_entry['year'] + \
-                                bib_entry['title'].split(' ')[0].lower() # google-scholar-like
-                citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
-            click.secho('Using citation key %s' % citation_key, fg="yellow")
-            os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
-            os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
-            destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
-            destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
     else:
         click.echo("No handler for URL was found. Trying to download as PDF...")
@@ -293,6 +280,22 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
 
         # let the user update the bib file details
         ctx.invoke(ck_open_cmd, filename=destbibfile)
+
+    if tmpCK:
+            bib_entry = defaultdict(lambda _: '', bib_read(destbibfile).entries[0])
+            if keep_bibtex_id and 'ID' in bib_entry:
+                no_rename_ck = True
+                citation_key = bib_entry['ID']
+            else:
+                citation_key = bib_entry['author'].split(' ')[0].lower() + \
+                                bib_entry['year'] + \
+                                bib_entry['title'].split(' ')[0].lower() # google-scholar-like
+                citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
+            click.secho('Using citation key %s' % citation_key, fg="yellow")
+            os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
+            os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
+            destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
+            destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
     if not no_rename_ck:
         # TODO: inefficient, reading bibfile multiple times
