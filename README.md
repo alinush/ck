@@ -15,6 +15,10 @@ Dependencies
 
     pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
 
+For auto tag-suggesting, you can install pdfgrep (optional):
+    
+    apt install pdfgrep
+
 Other useful, related repositories
 ----------------------------------
 
