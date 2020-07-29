@@ -510,6 +510,24 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
         sys.exit(1)
 
     if tags is None:
+        probe_pdfgrep = subprocess.check_output('which pdfgrep', shell=True).decode()
+        if 'not found' in probe_pdfgrep:
+            click.secho("Install pdfgrep can allow me to make tag suggestions.", fg='cyan')
+            click.secho("\t sudo apt install pdfgrep", fg='cyan')
+        else:
+            # analyze pdf for tags
+            tags = get_all_tags(ck_tag_dir)
+            suggested_tags = []
+            click.secho("Generating suggested tags..", fg='cyan')
+            for tag in tags:
+                try:
+                    ret = subprocess.check_output("pdfgrep -c '%s' %s" % (tag, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
+                    if len(ret) > 0:
+                        suggested_tags.append((tag, int(ret)))
+                except subprocess.CalledProcessError:
+                    continue
+            suggested_tags = sorted(suggested_tags, key=lambda x: x[1], reverse=True)
+            click.secho("Suggested: " + ','.join([x[0] for x in suggested_tags]), fg="cyan")
         # returns array of tags
         tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
     else:

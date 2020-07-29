@@ -63,6 +63,8 @@ def get_all_tags(tagdir, prefix=''):
         if not os.path.isdir(curdir):
             #print(curdir, "is not a dir")
             continue
+        if tagname.startswith('.git'): # not real tags
+            continue
 
         if len(prefix) > 0:
             fulltag = prefix + '/' + tagname
@@ -94,15 +96,12 @@ def print_tags(tags):
     print(style_tags(tags))
 
 def style_tags(taglist):
-    tagstr = ""
+    tagstr = []
     for tag in taglist:
         t = click.style('#' + tag, fg='yellow')
-        if len(tagstr) == 0:
-            tagstr = t
-        else:
-            tagstr = tagstr + ", " + t
+        tagstr.append(t)
 
-    return tagstr
+    return ','.join(tagstr)
 
 def parse_tags(tags_str):
     tags = tags_str.split(',')
