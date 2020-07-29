@@ -74,12 +74,14 @@ def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, dest
 
         with open(destbibfile, 'wb') as output:
             output.write(data)
+            output.close()
 
     if pdfurl is not None:
         data = get_url(opener, pdfurl, verbosity, user_agent, "application/pdf")
 
         with open(destpdffile, 'wb') as output:
             output.write(data)
+            output.close() # flush the contents
 
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
     path = parsed_url.path.split('/')[2:]

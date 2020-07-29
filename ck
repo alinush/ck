@@ -292,6 +292,12 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
                                 bib_entry['title'].split(' ')[0].lower() # google-scholar-like
                 citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
             click.secho('Using citation key %s' % citation_key, fg="yellow")
+
+            if os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
+                click.secho("ERROR: " + ck_to_pdf(ck_bib_dir, citation_key) + " already exists. Pick a different citation key.", fg="red", err=True)
+                os.remove(destpdffile)
+                os.remove(destbibfile)
+                sys.exit(1)
             
             os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
             os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
@@ -519,13 +525,14 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
             tags = get_all_tags(ck_tag_dir)
             suggested_tags = []
             click.secho("Generating suggested tags..", fg='cyan')
+            tag_extended_regex = '|'.join([ r'\b{}\b'.format(t) for t in tags])
+            try:
+                ret = subprocess.check_output("pdfgrep '%s' %s" % (tag_extended_regex, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
+            except subprocess.CalledProcessError:
+                ret = ''
             for tag in tags:
-                try:
-                    ret = subprocess.check_output("pdfgrep -c '%s' %s" % (tag, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
-                    if len(ret) > 0:
-                        suggested_tags.append((tag, int(ret)))
-                except subprocess.CalledProcessError:
-                    continue
+                if tag in ret: # count only non-zero
+                    suggested_tags.append((tag, ret.count(tag)))
             suggested_tags = sorted(suggested_tags, key=lambda x: x[1], reverse=True)
             click.secho("Suggested: " + ','.join([x[0] for x in suggested_tags]), fg="cyan")
         # returns array of tags
