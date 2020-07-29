@@ -215,6 +215,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     if verbosity > 0:
         print("Paper's URL:", parsed_url)
 
+    # TODO: change to regex matching
+    # TODO: incorporate zotero translators
     # get domain of website and handle it accordingly
     handlers = dict()
     handlers["link.springer.com"] = springerlink_handler
