@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from os import path
 from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
 from citationkeys.bib  import *
@@ -10,6 +11,7 @@ from citationkeys.urlhandlers import *
 from datetime import datetime
 from fake_useragent import UserAgent
 from http.cookiejar import CookieJar
+from pathlib import Path
 from pprint import pprint
 from urllib.parse import urlparse, urlunparse
 from urllib.request import Request
@@ -206,7 +208,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     # TODO: save to temp file, so you can first display abstract with author names and prompt the user for the "Citation Key" rather than giving it as an arg
     tmpCK = False
     if not citation_key:
-        citation_key = ''.join(random.sample(string.ascii_lowercase, 8))
+        citation_key = 'TMP' + ''.join(random.sample(string.ascii_lowercase, 8))
         tmpCK = True
 
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
@@ -230,8 +232,6 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     handlers["ieeexplore.ieee.org"] = ieeexplore_handler
     handlers["www.sciencedirect.com"] = sciencedirect_handler
     handlers["sciencedirect.com"] = handlers["www.sciencedirect.com"]
-
-    # TODO: Cornell arXiv. See https://arxiv.org/help/api/index.
 
     no_index_html = dict()
     no_index_html["eprint.iacr.org"] = True
@@ -270,7 +270,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
 
         # we might already have a bib file for this, so don't overwrite it if we do
         if not os.path.exists(destbibfile):
-            # create bib file template
+            # TODO: try pre-fill something here
+            # guess from the pdf file
             bibtex = bib_new(citation_key, "misc")
             bibtex.entries[0]['howpublished'] = '\\url{' + url + '}'
             bibtex.entries[0]['author'] = ''
@@ -299,8 +300,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
                 os.remove(destbibfile)
                 sys.exit(1)
             
-            os.rename(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
-            os.rename(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
+            os.replace(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
+            os.replace(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
 
             destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
             destbibfile = ck_to_bib(ck_bib_dir, citation_key)
@@ -488,6 +489,8 @@ def ck_tags_cmd(ctx):
 
     print_all_tags(ck_tag_dir)
 
+# TODO: use git-annex to manage tags
+# TODO: make symbol links working for multiple machines
 @ck.command('tag')
 @click.option(
     '-s', '--silent',
@@ -899,15 +902,28 @@ def ck_cleanbib_cmd(ctx):
 
 @ck.command('list')
 #@click.argument('directory', required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
-@click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+#@click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+@click.argument('pathnames', nargs=-1, type=click.STRING)
 @click.option(
     '-u', '--url',
     is_flag=True,
     default=False,
     help='Includes the URLs next to each paper'
     )
+@click.option(
+    '-s', '--short',
+    is_flag=True,
+    default=False,
+    help='Citation keys only'
+)
+@click.option(
+    '-r', '--relative',
+    is_flag=True,
+    default=False,
+    help='Relative path to BibDir'
+)
 @click.pass_context
-def ck_list_cmd(ctx, pathnames, url):
+def ck_list_cmd(ctx, pathnames, url, short, relative):
     """Lists all citation keys in the library"""
 
     ctx.ensure_object(dict)
@@ -916,19 +932,23 @@ def ck_list_cmd(ctx, pathnames, url):
     ck_tag_dir = os.path.normpath(os.path.realpath(ctx.obj['TagDir']))
     ck_tags    = ctx.obj['tags']
 
-    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative)
+    
+    if short:
+        print(' '.join(cks))
 
-    if verbosity > 0:
-        print(cks)
+    else:
+        if verbosity > 0:
+            print(cks)
 
-    ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
+        ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
 
-    sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
+        sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
+    
+        print_ck_tuples(sorted_cks, ck_tags, url)
 
-    print_ck_tuples(sorted_cks, ck_tags, url)
-
-    print()
-    print(str(len(cks)) + " PDFs listed")
+        print()
+        print(str(len(cks)) + " PDFs listed")
 
     # TODO: query could be a space-separated list of tokens
     # a token can be a hashtag (e.g., #dkg-dlog) or a sorting token (e.g., 'year')
@@ -941,8 +961,14 @@ def ck_list_cmd(ctx, pathnames, url):
 @ck.command('genbib')
 @click.argument('output-bibtex-file', required=True, type=click.File('w'))
 @click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+@click.option(
+    '-r', '--relative',
+    is_flag=True,
+    default=False,
+    help='Relative path to BibDir'
+)
 @click.pass_context
-def ck_genbib(ctx, output_bibtex_file, pathnames):
+def ck_genbib(ctx, output_bibtex_file, pathnames, relative):
     """Generates a master bibliography file of all papers."""
 
     ctx.ensure_object(dict)
@@ -950,7 +976,7 @@ def ck_genbib(ctx, output_bibtex_file, pathnames):
     ck_bib_dir = ctx.obj['BibDir']
     ck_tag_dir = ctx.obj['TagDir']
 
-    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative)
 
     num = 0
     sortedcks = sorted(cks)
@@ -970,8 +996,14 @@ def ck_genbib(ctx, output_bibtex_file, pathnames):
 @ck.command('copypdfs')
 @click.argument('output-dir', required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
 @click.argument('pathnames', nargs=-1, type=click.Path(exists=True, file_okay=True, dir_okay=True, resolve_path=True))
+@click.option(
+    '-r', '--relative',
+    is_flag=True,
+    default=False,
+    help='Relative path to BibDir'
+)
 @click.pass_context
-def ck_copypdfs(ctx, output_dir, pathnames):
+def ck_copypdfs(ctx, output_dir, pathnames, relative):
     """Copies all PDFs from the specified directories into the output directory."""
 
     ctx.ensure_object(dict)
@@ -979,7 +1011,7 @@ def ck_copypdfs(ctx, output_dir, pathnames):
     ck_bib_dir = ctx.obj['BibDir']
     ck_tag_dir = ctx.obj['TagDir']
 
-    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames)
+    cks = cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative)
 
     num = 0
     sortedcks = sorted(cks)

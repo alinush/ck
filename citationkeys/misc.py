@@ -50,7 +50,9 @@ def ck_exists(ck_bib_dir, ck):
 #   1.1. if in TagDir, list CKs in all subdirs
 #   1.2. if not in TagDir, list *all* CKs in BibDir
 # 2. When paths are given, list CKs in all those paths
-def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames):
+def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative):
+    if relative:
+        pathnames = [ck_tag_dir + '/' + p for p in pathnames]
     if len(pathnames) > 0:
         cks = set()
         for path in pathnames:
