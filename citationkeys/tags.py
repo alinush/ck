@@ -140,7 +140,7 @@ def parse_tags(tags_str):
 def prompt_for_tags(ctx, prompt):
     readline.set_completer(SimpleCompleter(get_all_tags(ctx.obj['TagDir']), ',').complete)
     readline.parse_and_bind('tab: complete')
-    tags_str = input(prompt + ':') # click.prompt(text=prompt, default="", show_default=False)
+    tags_str = input(prompt + ': (use Tab to autocomplete)\n') # click.prompt(text=prompt, default="", show_default=False)
     return parse_tags(tags_str)
 
 # if tag is None, removes all tags for the paper

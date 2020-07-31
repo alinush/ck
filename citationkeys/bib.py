@@ -103,6 +103,7 @@ def bib_get_url(bib):
 
     return url
 
+#TODO: let's use last names!
 def bib_suggest_citation_key(bib_entry):
     citation_key = bib_entry['author'].split(' ')[0].lower() + \
                                 bib_entry['year'] + \
