@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
-from os import path
+from os import abort, path
 from bibtexparser.bwriter import BibTexWriter
 from bs4 import BeautifulSoup
 from citationkeys.bib  import *
@@ -169,6 +169,14 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # TODO: make sure symlinks are not broken in TagDir
     # TODO: make sure all .bib files have the right CK and have ckdateadded
 
+def abort_citation_exists(ctx, destpdffile, citation_key):
+    click.secho("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red", err=True)
+    if click.confirm("\nWould you like to tag the existing paper?", default=True):
+        ctx.invoke(ck_tags_cmd)
+        print()
+        # prompt user to tag paper
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key)
+
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -243,13 +251,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     parser = "lxml"
 
     if os.path.exists(destpdffile):
-        click.secho("ERROR: " + destpdffile + " already exists. Pick a different citation key.", fg="red", err=True)
+        abort_citation_exists(ctx, destpdffile, citation_key)
         sys.exit(1)
 
     if domain in handlers:
         # when downloading just the PDF in the 'else' branch of this 'if', we shouldn't care if a .bib file already exists
         if os.path.exists(destbibfile):
-            click.secho("ERROR: " + destbibfile + " already exists. Pick a different citation key.", fg="red", err=True)
+            abort_citation_exists(ctx, destbibfile, citation_key)
             sys.exit(1)
 
         soup = None
@@ -295,7 +303,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
             click.secho('Using citation key %s' % citation_key, fg="yellow")
 
             if os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
-                click.secho("ERROR: " + ck_to_pdf(ck_bib_dir, citation_key) + " already exists. Pick a different citation key.", fg="red", err=True)
+                abort_citation_exists(ctx, destpdffile, citation_key)
                 os.remove(destpdffile)
                 os.remove(destbibfile)
                 sys.exit(1)
@@ -539,7 +547,7 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
             suggested_tags = sorted(suggested_tags, key=lambda x: x[1], reverse=True)
             click.secho("Suggested: " + ','.join([x[0] for x in suggested_tags]), fg="cyan")
         # returns array of tags
-        tags = prompt_for_tags("Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
+        tags = prompt_for_tags(ctx, "Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
     else:
         # parses comma-separated tag string into an array of tags
         tags = parse_tags(tags)

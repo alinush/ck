@@ -8,8 +8,36 @@ from pprint import pprint
 import bibtexparser
 import click
 import os
+import readline # improves tagging experience a lot!
 import sys
 import traceback
+
+class SimpleCompleter(object):
+    
+    def __init__(self, options, spliter):
+        self.options = sorted(options)
+        self.spliter = spliter
+        return
+
+    def complete(self, text, state):
+        response = None
+        if state == 0:
+            # This is the first time for this text, so build a match list.
+            current_item = text.split(self.spliter)[-1].strip()
+            if current_item:
+                self.matches = [s 
+                                for s in self.options
+                                if s and s.startswith(current_item)]
+            else:
+                self.matches = self.options[:]
+        
+        # Return the state'th item from the match list,
+        # if we have that many.
+        try:
+            response = self.matches[state]
+        except IndexError:
+            response = None
+        return response
 
 # returns a map of CK to its list of tags
 def find_tagged_pdfs(ck_tag_subdir, verbosity):
@@ -109,8 +137,10 @@ def parse_tags(tags_str):
     tags = list(filter(lambda t: len(t) > 0, tags))
     return tags
 
-def prompt_for_tags(prompt):
-    tags_str = click.prompt(text=prompt, default="", show_default=False)
+def prompt_for_tags(ctx, prompt):
+    readline.set_completer(SimpleCompleter(get_all_tags(ctx.obj['TagDir']), ',').complete)
+    readline.parse_and_bind('tab: complete')
+    tags_str = input(prompt + ':') # click.prompt(text=prompt, default="", show_default=False)
     return parse_tags(tags_str)
 
 # if tag is None, removes all tags for the paper
