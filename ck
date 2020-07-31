@@ -250,15 +250,10 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
     user_agent = UserAgent().random
     parser = "lxml"
 
-    if os.path.exists(destpdffile):
-        abort_citation_exists(ctx, destpdffile, citation_key)
-        sys.exit(1)
+    pdf_data = None
+    bib_data = None
 
     if domain in handlers:
-        # when downloading just the PDF in the 'else' branch of this 'if', we shouldn't care if a .bib file already exists
-        if os.path.exists(destbibfile):
-            abort_citation_exists(ctx, destbibfile, citation_key)
-            sys.exit(1)
 
         soup = None
         index_html = None
@@ -270,14 +265,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
         handler = handlers[domain]
         # TODO: display abstract
         # TODO: if no CK specified, prompt the user for one
-        handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity)
+        bib_data, pdf_data = handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity)
 
     else:
         click.echo("No handler for URL was found. Trying to download as PDF...")
-        download_pdf(opener, user_agent, url, destpdffile, verbosity)
+        pdf_data = download_pdf(opener, user_agent, url, verbosity)
 
-        # we might already have a bib file for this, so don't overwrite it if we do
-        if not os.path.exists(destbibfile):
+        if True:   #not os.path.exists(destbibfile):
             # TODO: try pre-fill something here
             # guess from the pdf file
             bibtex = bib_new(citation_key, "misc")
@@ -285,34 +279,42 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, no_rename_ck, keep_bibtex_
             bibtex.entries[0]['author'] = ''
             bibtex.entries[0]['year'] = ''
             bibtex.entries[0]['title'] = ''
-            bib_write(destbibfile, bibtex)
-
-        # let the user update the bib file details
-        ctx.invoke(ck_open_cmd, filename=destbibfile)
+            now = datetime.now()
+            timestr = now.strftime("%Y-%m-%d %H:%M:%S")
+            bibtex.entries[0]['ckdateadded'] = timestr
+            bib_data = bib_serialize(bibtex)
+            bib_data = click.edit(bib_data, ctx.obj['TextEditor']).encode('utf-8') # external editor
 
     if tmpCK:
-            bib_entry = defaultdict(lambda : '', bib_read(destbibfile).entries[0])
+            bib_entry = defaultdict(lambda : '', bib_deserialize(bib_data.decode()).entries[0])
             if keep_bibtex_id and 'ID' in bib_entry:
                 no_rename_ck = True
                 citation_key = bib_entry['ID']
             else:
-                citation_key = bib_entry['author'].split(' ')[0].lower() + \
-                                bib_entry['year'] + \
-                                bib_entry['title'].split(' ')[0].lower() # google-scholar-like
-                citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
+                suggested = bib_suggest_citation_key(bib_entry)
+                if suggested: # the user might enter nothing
+                    citation_key = suggested
             click.secho('Using citation key %s' % citation_key, fg="yellow")
-
-            if os.path.exists(ck_to_pdf(ck_bib_dir, citation_key)):
-                abort_citation_exists(ctx, destpdffile, citation_key)
-                os.remove(destpdffile)
-                os.remove(destbibfile)
-                sys.exit(1)
-            
-            os.replace(destpdffile, ck_to_pdf(ck_bib_dir, citation_key))
-            os.replace(destbibfile, ck_to_bib(ck_bib_dir, citation_key))
 
             destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
             destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+    
+    if os.path.exists(destpdffile):
+        abort_citation_exists(ctx, destpdffile, citation_key)
+        sys.exit(1)
+    
+    if (domain in handlers) and os.path.exists(destbibfile):
+        # when downloading just the PDF, we shouldn't care if a .bib file already exists
+        abort_citation_exists(ctx, destbibfile, citation_key)
+        sys.exit(1)
+    
+    with open(destpdffile, 'wb') as fout_pdf:
+        fout_pdf.write(pdf_data)
+
+    # we might already have a bib file for this, so don't overwrite it if we do
+    if not os.path.exists(destbibfile):
+        with open(destbibfile, 'wb') as fout_bib:
+            fout_bib.write(bib_data)
 
     if not no_rename_ck:
         # TODO: inefficient, reading bibfile multiple times

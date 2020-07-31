@@ -21,19 +21,31 @@ _citation_key_ck_completion() {
     else
 
         case ${COMP_WORDS[1]} in
-            bib|info|open|queue|read|rename|rm|tag|untag)
+            b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|tag|u|un|unt|unta|untag)
             local candidates=`ck list -s`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
-            dequeue|finished)
+            rea|read)
+            local candidates=`ck list -r -s queue/to-read queue/finished`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            d|de|deq|dequ|deque|dequeu|dequeue)
             local candidates=`ck list -r -s queue/to-read`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
-            list)
+            f|fi|fin|fini|finish|finishe|finished)
+            local candidates=`ck list -r -s queue/to-read queue/reading`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            l|li|lis|list)
             local candidates=`find ${TagDir} -type d -not -path "*/.git/*"`
             local IFS=$'\n' # avoid confusion about spaces
             COMPREPLY=(`compgen -W "${candidates[@]}" -- ${cur}`)
