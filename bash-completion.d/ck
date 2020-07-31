@@ -46,9 +46,14 @@ _citation_key_ck_completion() {
             fi
             ;;
             l|li|lis|list)
-            local candidates=`find ${TagDir} -type d -not -path "*/.git/*"`
-            local IFS=$'\n' # avoid confusion about spaces
-            COMPREPLY=(`compgen -W "${candidates[@]}" -- ${cur}`)
+            if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-r" ]; then
+                # we don't complete for relative paths for now
+                # TODO
+            else
+                local candidates=`find ${TagDir} -type d -not -path "*/.git*"`
+                local IFS=$'\n' # avoid confusion about spaces
+                COMPREPLY=(`compgen -W "${candidates[@]}" -- ${cur}`)
+            fi
             ;;
         esac
     fi
