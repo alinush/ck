@@ -15,6 +15,8 @@ Setup
 
     pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
 
+Fill in ck.config and put it in your [config folder](https://pypi.org/project/appdirs/).
+
 For auto tag-suggesting, you can install pdfgrep (optional):
     
     apt install pdfgrep # Ubuntu/Debian
