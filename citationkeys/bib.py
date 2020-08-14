@@ -10,8 +10,25 @@ import bibtexparser
 import click
 import os
 import re
+import string
 import sys
 import traceback
+import unicodedata
+
+def strip_accents(s):
+    """
+    Sanitarize the given unicode string and remove all special/localized
+    characters from it.
+ 
+    Category "Mn" stands for Nonspacing_Mark
+    """
+    try:
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s)
+            if unicodedata.category(c) != 'Mn'
+        )
+    except:
+        return s
 
 def canonicalize_bibtex(ck, bibtex, verbosity):
     assert len(bibtex.entries) == 1
@@ -53,6 +70,11 @@ def bib_new(citation_key, entry_type):
     bibtex.entries = [ { 'ID': citation_key, 'ENTRYTYPE': entry_type } ]
     return bibtex
 
+def bib_deserialize(bib_data):
+    parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+    bibtex = bibtexparser.loads(bib_data)
+    return bibtex
+
 def bib_read(destbibfile):
     with open(destbibfile) as bibf:
         # NOTE: Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
@@ -81,11 +103,23 @@ def bib_get_url(bib):
 
     return url
 
+#TODO: let's use last names!
+def bib_suggest_citation_key(bib_entry):
+    citation_key = bib_entry['author'].split(' ')[0].lower() + \
+                                bib_entry['year'] + \
+                                bib_entry['title'].split(' ')[0].lower() # google-scholar-like
+    citation_key = strip_accents(citation_key)
+    citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
+    return citation_key
+
+def bib_serialize(bibtex):
+    bibwriter = bibtexparser.bwriter.BibTexWriter()
+    canonicalize_bibtex(bibtex.entries[0]['ID'], bibtex, 0)
+    return bibwriter.write(bibtex)
+
 def bib_write(destbibfile, bibtex):
     with open(destbibfile, 'w') as bibf:
-        bibwriter = bibtexparser.bwriter.BibTexWriter()
-        canonicalize_bibtex(bibtex.entries[0]['ID'], bibtex, 0)
-        bibf.write(bibwriter.write(bibtex))
+        bibf.write(bib_serialize(bibtex))
     
 def bib_rename_ck(destbibfile, citation_key):
     bibtex = bib_read(destbibfile)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
@@ -49,7 +50,9 @@ def ck_exists(ck_bib_dir, ck):
 #   1.1. if in TagDir, list CKs in all subdirs
 #   1.2. if not in TagDir, list *all* CKs in BibDir
 # 2. When paths are given, list CKs in all those paths
-def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames):
+def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative):
+    if relative:
+        pathnames = [ck_tag_dir + '/' + p for p in pathnames]
     if len(pathnames) > 0:
         cks = set()
         for path in pathnames:
@@ -98,7 +101,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             #print(bibtex.entries)
             #print("Comments: ")
             #print(bibtex.comments)
-            bib = bibtex.entries[0]
+            bib = defaultdict(lambda: '', bibtex.entries[0])
 
             # make sure the CK in the .bib matches the filename
             bck = bib['ID']

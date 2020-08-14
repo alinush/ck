@@ -10,10 +10,21 @@ Features:
  - organize papers by tagging them
  - generate a full `.bib` file of all your papers
 
-Dependencies
+Setup
 ------------
 
     pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
+
+Fill in ck.config and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
+
+For auto tag-suggesting, you can install pdfgrep (optional):
+    
+    apt install pdfgrep # Ubuntu/Debian
+    brew install pdfgrep # mac
+
+To install bash auto-completion, run
+
+    source bash-completion.d/ck
 
 Other useful, related repositories
 ----------------------------------
@@ -48,13 +59,13 @@ How to use
     ck open <citation-key>.bib
 
     # prompts you to tag all currently untagged papers
-    git tag
+    ck tag
 
     # tag the paper with <tag> (or enter tag manually from keyboard)
-    git tag <citation-key> [<tag>]
+    ck tag <citation-key> [<tag>]
 
     # search all your .bib files and print matching papers' citation keys
-    git search <query>
+    ck search <query>
 
 TODOs
 -----

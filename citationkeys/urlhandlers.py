@@ -64,26 +64,30 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
 
     return html
 
-def download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity):
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, None, None, verbosity)
-
-def download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity):
-    # WARNING: Download bib file first, since downloading the PDF first will fail this function when the website is behind a pay-wall.
+def download_bib(opener, user_agent, biburl, verbosity):
     if biburl is not None:
-        data = get_url(opener, biburl, verbosity, user_agent)
+        bib_data = get_url(opener, biburl, verbosity, user_agent)
+        return bib_data
+    return None
 
-        with open(destbibfile, 'wb') as output:
-            output.write(data)
-
+def download_pdf(opener, user_agent, pdfurl, verbosity):
     if pdfurl is not None:
-        data = get_url(opener, pdfurl, verbosity, user_agent, "application/pdf")
+        pdf_data = get_url(opener, pdfurl, verbosity, user_agent, "application/pdf")
+        return pdf_data
+    return None
 
-        with open(destpdffile, 'wb') as output:
-            output.write(data)
+def download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity):
+    # WARNING: Download bib file first, since downloading the PDF first will fail this function when the website is behind a pay-wall.
+    return download_bib(opener, user_agent, biburl, verbosity), download_pdf(opener, user_agent, pdfurl, verbosity)
 
-def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     path = parsed_url.path.split('/')[2:]
-    doi = path[0] + '/' + path[1]
+    if len(path) > 1:
+        doi = path[-2] + '/' + path[-1]
+    elif 'doid' in parsed_url.query:
+        doi = '10.1145/' + parsed_url.query.split('=')[1] # 10.1145/doid
+    else:
+        assert(False)
 
     if verbosity > 0:
         print("ACM DL paper DOI:", doi)
@@ -94,7 +98,7 @@ def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile
     if verbosity > 0:
         print("ACM DL paper PDF URL:", pdfurl)
 
-    download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
+    pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
 
     # ugh, the new dl.acm.org has no easy way of getting the BibTeX AFAICT, so using something else
     biburl = "http://doi.org/" + doi
@@ -107,11 +111,10 @@ def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile
         bibtex_str = bibtex.decode("utf-8")
         print("ACM DL paper BibTeX: ", bibtex_str)
 
-    with open(destbibfile, 'wb') as output:
-        output.write(bibtex)
+    return bibtex, pdf_data
 
 # Deprecated, since DL ACM website changed in 2019/2020.
-def dlacm_handler_old(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def dlacm_handler_old(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     paper_id = parsed_url.query.split('=')[1]
 
     # sometimes the URL might have ?doid=<parentid>.<id> rather than just ?doid=<id>
@@ -137,9 +140,9 @@ def dlacm_handler_old(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbib
     # then, we download the .bib file from, say, https://dl.acm.org/downformats.cfm?id=28420&parent_id=28395&expformat=bibtex
     biburl = url_prefix + '/downformats.cfm?id=' + paper_id + '&parent_id=' + parent_id + '&expformat=bibtex'
 
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
-def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     # let's accept links in both formats
     #  - https://eprint.iacr.org/2015/525.pdf
     #  - https://eprint.iacr.org/2015/525
@@ -150,7 +153,7 @@ def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     else:
         pdfurl = urlunparse(parsed_url) + ".pdf"
 
-    download_pdf(opener, user_agent, pdfurl, destpdffile, verbosity)
+    pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
 
     biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + path
     print("Downloading BibTeX from", biburl)
@@ -158,10 +161,9 @@ def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     bibsoup = BeautifulSoup(html, parser)
     bibtex = bibsoup.find('pre').text.strip()
 
-    with open(destbibfile, 'wb') as output:
-        output.write(bibtex.encode('utf-8'))
+    return bibtex.encode('utf-8'), pdf_data
 
-def sciencedirect_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def sciencedirect_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     elem = soup.find("head").find("meta", attrs={"name": "citation_pdf_url"})
     pdf_redirect_url = elem['content']
     if verbosity > 0:
@@ -183,9 +185,9 @@ def sciencedirect_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, des
     if verbosity > 0:
         click.echo("PDF URL: " + str(pdfurl))
 
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
-def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
     paper_id = path[len('chapter/'):]
@@ -201,9 +203,34 @@ def springerlink_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, dest
     # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
     biburl = 'https://citation-needed.springer.com/v2/references' + paper_id + '?format=bibtex&flavour=citation'
 
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
-def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+# https://arxiv.org/pdf/XXXX.XXXX.pdf
+# https://arxiv.org/abs/XXXX.XXXX
+def arxiv_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
+    if '.pdf' in parsed_url.path:
+        paper_id = parsed_url.path[len('/pdf/'):-len('.pdf')]    
+    elif '/abs' in parsed_url.path:
+        paper_id = parsed_url.path[len('/abs/'):]
+    else:
+        assert(False) # not implemented yet
+    
+    paper_id = paper_id.strip('/')
+    
+    print("Paper ID:", paper_id)
+
+    pdfurl = 'https://arxiv.org/pdf/%s.pdf' % paper_id
+    index_html = get_url(opener, 'https://arxiv2bibtex.org/?q=' + paper_id + '&format=bibtex', verbosity, user_agent)
+    soup = BeautifulSoup(index_html, parser)
+    bibtex = soup.select_one('#bibtex > textarea').get_text().strip()
+
+    #elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
+    # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
+
+    return bibtex.encode('utf-8'), download_pdf(opener, user_agent, pdfurl, verbosity)
+
+
+def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
 
@@ -221,9 +248,9 @@ def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbib
     pdfurl = url_prefix + '/doi/pdf/' + doi
     biburl = url_prefix + '/action/downloadCitation?doi=' + doi_alt + '&format=bibtex&include=cit'
 
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, destbibfile, verbosity)
+    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
-def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbibfile, parser, user_agent, verbosity):
+def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
 
@@ -248,13 +275,9 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, destpdffile, destbi
     pdfurl = elem['src']
     biburl = url_prefix + '/xpl/downloadCitations?recordIds=' + arnum + '&download-format=download-bibtex&citations-format=citation-abstract'
 
-    tmpbibf = tempfile.NamedTemporaryFile(delete=True)
-    tmpbibfile = tmpbibf.name
     # TODO: when PDF fails, saving bib file will fail too. fix this.
-    download_pdf_andor_bib(opener, user_agent, pdfurl, destpdffile, biburl, tmpbibfile, verbosity)
+    bib_data, pdf_data = download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
     # clean the .bib file, which IEEExplore kindly serves with <br>'s in it
-    bibtex = file_to_string(tmpbibfile)
-    tmpbibf.close()
-    bibtex = bibtex.replace('<br>', '')
-    string_to_file(bibtex, destbibfile)
+    bib_data = bib_data.replace('<br>', '')
+    return bib_data, pdf_data

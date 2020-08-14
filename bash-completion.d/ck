@@ -5,14 +5,58 @@
 
 _citation_key_ck_completion() {
     # this stops autocompletion from adding the same word multiple times after it was added the first time
-    if [ "${#COMP_WORDS[@]}" != "2" ]; then
-        return
+
+    BibDir=$(awk -F "=" '/BibDir/ {print $2}' $HOME/.config/ck/ck.config)
+    TagDir=$(awk -F "=" '/TagDir/ {print $2}' $HOME/.config/ck/ck.config)
+
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    if [ "${COMP_CWORD}" == "1" ]
+    then
+        local line=`ck | grep -n "^Commands:$" | cut -f 1 -d':'`
+        local ck_subcommands=`ck | tail -n +$(($line+1)) | cut -f 3 -d' '`
+
+        local suggestions=(`compgen -W "$(echo $ck_subcommands)" -- "${cur}"`)
+        COMPREPLY=("${suggestions[@]}")
+    else
+
+        case ${COMP_WORDS[1]} in
+            b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|tag|u|un|unt|unta|untag)
+            local candidates=`ck list -s`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            rea|read)
+            local candidates=`ck list -r -s queue/to-read queue/finished`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            d|de|deq|dequ|deque|dequeu|dequeue)
+            local candidates=`ck list -r -s queue/to-read`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            f|fi|fin|fini|finish|finishe|finished)
+            local candidates=`ck list -r -s queue/to-read queue/reading`
+            if [ "${#candidates}" != "0" ]; then
+                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+            fi
+            ;;
+            l|li|lis|list)
+            if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-r" ]; then
+                # we don't complete for relative paths for now
+                # TODO
+            else
+                local candidates=`find ${TagDir} -type d -not -path "*/.git*"`
+                local IFS=$'\n' # avoid confusion about spaces
+                COMPREPLY=(`compgen -W "${candidates[@]}" -- ${cur}`)
+            fi
+            ;;
+        esac
     fi
-
-    local line=`ck | grep -n "^Commands:$" | cut -f 1 -d':'`
-    local ck_subcommands=`ck | tail -n +$(($line+1)) | cut -f 3 -d' '`
-
-    COMPREPLY=(`compgen -W "$(echo $ck_subcommands)" "${COMP_WORDS[1]}"`)
 }
 
 complete -F _citation_key_ck_completion ck
