@@ -49,6 +49,7 @@ _citation_key_ck_completion() {
             if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-r" ]; then
                 # we don't complete for relative paths for now
                 # TODO
+		true
             else
                 local candidates=`find ${TagDir} -type d -not -path "*/.git*"`
                 local IFS=$'\n' # avoid confusion about spaces
