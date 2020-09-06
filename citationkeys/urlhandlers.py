@@ -256,6 +256,7 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent,
 
     splitpath = path.split('/')
     arnum = splitpath[2]
+    print('arnum', arnum)
 
     # To get the PDF link, we have to download an HTML page which puts the PDF in an iframe. Doh.
     # e.g., https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7958589
@@ -279,5 +280,5 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent,
     bib_data, pdf_data = download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
     # clean the .bib file, which IEEExplore kindly serves with <br>'s in it
-    bib_data = bib_data.replace('<br>', '')
+    bib_data = bib_data.replace(b'<br>', b'')
     return bib_data, pdf_data

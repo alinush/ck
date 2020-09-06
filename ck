@@ -531,7 +531,7 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
     if tags is None:
         probe_pdfgrep = subprocess.check_output('which pdfgrep', shell=True).decode()
         if 'not found' in probe_pdfgrep:
-            click.secho("Install pdfgrep can allow me to make tag suggestions.", fg='cyan')
+            click.secho("Installing pdfgrep can allow me to make tag suggestions.", fg='cyan')
             click.secho("\t sudo apt install pdfgrep", fg='cyan')
         else:
             # analyze pdf for tags
