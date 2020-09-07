@@ -21,13 +21,12 @@ import datetime
 import os
 import pyperclip
 import smtplib
-import subprocess
 import sys
 import tempfile
 import urllib
 
 def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extra_headers={}):
-    # TODO: handle 403 error and display HTML returned
+    # TODO(Alin): handle 403 error and display HTML returned
     if verbosity > 0:
         print("Downloading URL:", url)
 
@@ -77,8 +76,9 @@ def download_pdf(opener, user_agent, pdfurl, verbosity):
     return None
 
 def download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity):
-    # WARNING: Download bib file first, since downloading the PDF first will fail this function when the website is behind a pay-wall.
-    return download_bib(opener, user_agent, biburl, verbosity), download_pdf(opener, user_agent, pdfurl, verbosity)
+    return \
+        download_bib(opener, user_agent, biburl, verbosity), \
+        download_pdf(opener, user_agent, pdfurl, verbosity)
 
 def dlacm_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     path = parsed_url.path.split('/')[2:]
@@ -252,11 +252,18 @@ def epubssiam_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, 
 
 def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+
     path = parsed_url.path
+    if verbosity > 1:
+        print('path: ', path)
 
     splitpath = path.split('/')
-    arnum = splitpath[2]
-    print('arnum', arnum)
+    if verbosity > 1:
+        print('splitpath: ', splitpath)
+
+    arnum = splitpath[-1]
+    if verbosity > 1:
+        print('arnumber: ', arnum)
 
     # To get the PDF link, we have to download an HTML page which puts the PDF in an iframe. Doh.
     # e.g., https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7958589
@@ -265,6 +272,11 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent,
     html = get_url(opener, pdf_iframe_url, verbosity, user_agent)
     pdfsoup = BeautifulSoup(html, parser)
     elem = pdfsoup.find('iframe')
+    if elem == None:
+        print_error("Parsing failed! Could not find iframe in stamp.jsp HTML.")
+        sys.exit(1)
+
+    # TODO(Alin): If we keep getting more errors, try direct link: https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&isnumber=&arnumber=$arnum
 
     # e.g., PDF URL
     # https://ieeexplore.ieee.org/ielx7/7957740/7958557/07958589.pdf
@@ -276,7 +288,6 @@ def ieeexplore_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent,
     pdfurl = elem['src']
     biburl = url_prefix + '/xpl/downloadCitations?recordIds=' + arnum + '&download-format=download-bibtex&citations-format=citation-abstract'
 
-    # TODO: when PDF fails, saving bib file will fail too. fix this.
     bib_data, pdf_data = download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
     # clean the .bib file, which IEEExplore kindly serves with <br>'s in it

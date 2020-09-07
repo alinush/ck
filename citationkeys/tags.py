@@ -111,6 +111,7 @@ def print_all_tags(ck_tag_dir):
     tags = get_all_tags(ck_tag_dir)
     print_tags(tags)
 
+# TODO(Alin): Come up with a pretty print style
 def print_tags(tags):
     def pop_suffix(prefix):
         pos = prefix.rfind('/')
@@ -119,17 +120,16 @@ def print_tags(tags):
         else:
             return prefix[:pos]
 
-    # TODO: use a stack for housekeeping to print things nicely 
-
     print(style_tags(tags))
 
 def style_tags(taglist):
-    tagstr = []
+    tags = []
     for tag in taglist:
         t = click.style('#' + tag, fg='yellow')
-        tagstr.append(t)
+        tags.append(t)
 
-    return ','.join(tagstr)
+    tagstr = ', '.join(tags)
+    return tagstr
 
 def parse_tags(tags_str):
     tags = tags_str.split(',')
@@ -140,7 +140,7 @@ def parse_tags(tags_str):
 def prompt_for_tags(ctx, prompt):
     readline.set_completer(SimpleCompleter(get_all_tags(ctx.obj['TagDir']), ',').complete)
     readline.parse_and_bind('tab: complete')
-    tags_str = input(prompt + ': (use Tab to autocomplete)\n') # click.prompt(text=prompt, default="", show_default=False)
+    tags_str = input(prompt + ' (use Tab to autocomplete): ')
     return parse_tags(tags_str)
 
 # if tag is None, removes all tags for the paper

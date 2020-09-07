@@ -62,6 +62,7 @@ for url in $urls; do
         pdf_hash_actual=${pdf_hashes[$i]}
         bib_hash_actual=${bib_hashes[$i]}
 
+        # TODO(Alin): Removed --no-rename-ck for simplicity, need different way to test
         $scriptdir/ck -c $ck_config -v add --no-tag-prompt --no-rename-ck "$url" $name
         rc=$?
         i=$(($i+1))

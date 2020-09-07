@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
-from .bib import bib_get_url
+from .bib import bibent_get_url
 
 # NOTE: Alphabetical order please
 import bibtexparser
@@ -53,6 +53,7 @@ def ck_exists(ck_bib_dir, ck):
 def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative):
     if relative:
         pathnames = [ck_tag_dir + '/' + p for p in pathnames]
+
     if len(pathnames) > 0:
         cks = set()
         for path in pathnames:
@@ -84,7 +85,7 @@ def cks_from_paths(ck_bib_dir, ck_tag_dir, pathnames, relative):
 
     return cks
 
-# TODO: Take flags that decide what to print. For now, "title, authors, year"
+# TODO(Alin): Take flags that decide what to print. For now, "title, authors, year"
 def cks_to_tuples(ck_bib_dir, cks, verbosity):
     ck_tuples = []
 
@@ -112,7 +113,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             title  = bib['title'].strip("{}")
             year   = bib['year']
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
-            url    = bib_get_url(bib)
+            url    = bibent_get_url(bib)
 
             ck_tuples.append((ck, author, title, year, date, url))
 
@@ -174,3 +175,9 @@ def list_cks(ck_bib_dir):
 
 def style_ck(ck):
     return click.style(ck, fg="blue")
+
+def print_error(msg):
+    click.secho("ERROR: " + msg, fg="red", err=True)
+
+def print_warning(msg):
+    click.secho("WARNING: " + msg, fg="yellow")

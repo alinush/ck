@@ -1,5 +1,0 @@
-[default]
-BibDir         = /home/<your-user-name>/Dropbox/Papers
-TagDir         = /home/<your-user-name>/repos/bibtags
-TextEditor     = vim
-MarkdownEditor = macdown

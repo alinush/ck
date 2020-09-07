@@ -9,13 +9,14 @@ Features:
  - easily open any paper given its citation key
  - organize papers by tagging them
  - generate a full `.bib` file of all your papers
+ - export papers with a particular tag
 
 Setup
-------------
+-----
 
     pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
 
-Fill in ck.config and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
+Fill in `ck.config` and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
 
 For auto tag-suggesting, you can install pdfgrep (optional):
     
@@ -32,7 +33,6 @@ Other useful, related repositories
  - [zotero translators](https://github.com/zotero/translators/blob/master/IEEE%20Xplore.js)
  - [BibFromXplore.sh](https://github.com/rval735/BNN-PhD/blob/9a8941bbdf2a9c0dbda4420b522ca306da216e0c/Scripts/BibFromXplore.sh)
  - [AnyBibTeX](https://github.com/Livich/AnyBibTeX)
- - [paperbot](https://github.com/kanzure/paperbot)
  - [iacr-dl](https://github.com/znewman01/iacr-dl)
  - [bibcure](https://github.com/bibcure/bibcure)
  - [scihub2pdf](https://github.com/bibcure/scihub2pdf)
@@ -58,9 +58,6 @@ How to use
     # open a paper's .bib file
     ck open <citation-key>.bib
 
-    # prompts you to tag all currently untagged papers
-    ck tag
-
     # tag the paper with <tag> (or enter tag manually from keyboard)
     ck tag <citation-key> [<tag>]
 
@@ -75,14 +72,13 @@ TODOs
  - tools for making the .bib files consistent
     + titles should have double brackets
     + same conference shouldn't have different names
+    + author names should always be separated by ' and '
     - similar or incomplete author names
  - how to deal with multiple versions of the same paper (eprint, conference, journal)
     + when published in the same year, we could have the eprint version as an extra `ABC99.eprint.pdf` file
     - when published in different years, can just have a new CK for it
     - `open` should be adjusted to prompt user for what to open, if multiple `.pdf` files exist for a CK?
  - `ck` command
-    - `open` subcommand
-        - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
     - `list` subcommand
         - display associated file info
             - nopdf
@@ -92,13 +88,12 @@ TODOs
         - add sort-by options
             - need sort by most recently added (with date & time displayed)
         - list all conferences across papers
-    - `rename` command
-        - renames a citation key and updates all symlinks
-    - `untag` subcommand
-        + right now, if we only have a `.bib` file without any PDFs, `untag` will not detect any untagged papers. how to handle?
-    + `open` subcommand
-        - autocomplete citation key
+    - `open` subcommand
+        - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
+        - [DONE] autocomplete citation key
             + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
         - if you type in a partial citation key, should list all matches
             - if just one match, should just open it, displaying a warning that it only partially matched so as to not train you to use the wrong CK
         - if you type an ambiguous citation key (lowercase / uppercase), maybe you should be prompted for what to open, because there won't be many matches.
+    - `untag` subcommand
+        + right now, if we only have a `.bib` file without any PDFs, `untag` will not detect any untagged papers. how to handle?
