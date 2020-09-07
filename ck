@@ -810,7 +810,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
             venue = bib['booktitle']
         elif 'journal' in bib:
             venue = bib['journal']
-        elif 'howpublished' in bib:
+        elif 'howpublished' in bib and "\\url" not in bib['howpublished']:
             venue = bib['howpublished']
         else:
             venue = None
