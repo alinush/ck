@@ -164,14 +164,38 @@ def iacreprint_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent,
     return bibtex.encode('utf-8'), pdf_data
 
 def sciencedirect_handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+
+    # First, try to find a link to the PDF
+    pdf_redirect_url = None
+    # Option 1: <head> has a <meta> tag with the link
     elem = soup.find("head").find("meta", attrs={"name": "citation_pdf_url"})
-    pdf_redirect_url = elem['content']
+    if elem != None:
+        if verbosity > 1:
+            print(elem)
+
+        pdf_redirect_url = elem['content']
+    # Option 2: PDF link appears in an <a> tag
+    else:
+        print_warning("Could not find 'citation_pdf_url' <meta> in <head>, trying to search for an <a> link with a PDF href...")
+        elems = soup.find_all("a")
+        for e in elems:
+            if "Download full text in PDF" in e.text:
+                pdf_redirect_url = url_prefix + e.get("href")
+
+    # If both approaches failed, exit!
+    if not pdf_redirect_url:
+        print_error("Failed to find a PDF link")
+        sys.exit(1)
+
     if verbosity > 0:
         click.echo("PDF redirect URL: " + str(pdf_redirect_url))
 
+    # Then, try to build a link to the BibTeX file
     elem = soup.find("head").find("meta", attrs={"name": "citation_pii"})
+    if verbosity > 1:
+        print(elem)
     pii = elem['content']
-    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     biburl = url_prefix + "/sdfe/arp/cite?pii=" + pii + "&format=text/x-bibtex&withabstract=True"
 
     if verbosity > 0:
