@@ -130,7 +130,7 @@ def bibent_get_first_author_year_title_ck(bibent):
 
 def bibent_get_author_initials_ck(bibent):
     allAuthors = bibent['author'].split(' and ')
-    print("all authors: ", allAuthors)
+    #print("all authors: ", allAuthors)
     moreThanFour = len(allAuthors) > 4
 
     # get the first four (or less) author names
@@ -139,7 +139,7 @@ def bibent_get_author_initials_ck(bibent):
     else:
         authors = allAuthors[:4]
 
-    print("authors: ", authors)
+    #print("authors: ", authors)
     # returns the last name (heuristically) from a string in either <first> <last> or <last>, <first> format
     def get_last_name(author):
         # NOTE(Alin): For now, we're restrict ourselves to simple names with A-Z letters only
