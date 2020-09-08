@@ -25,7 +25,7 @@ For auto tag-suggesting, you can install pdfgrep (optional):
 
 To install bash auto-completion, run
 
-    source bash-completion.d/ck
+    source bash_completion.d/ck
 
 Other useful, related repositories
 ----------------------------------

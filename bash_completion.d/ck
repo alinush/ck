@@ -6,8 +6,9 @@
 _citation_key_ck_completion() {
     # this stops autocompletion from adding the same word multiple times after it was added the first time
 
-    BibDir=$(awk -F "=" '/BibDir/ {print $2}' $HOME/.config/ck/ck.config)
-    TagDir=$(awk -F "=" '/TagDir/ {print $2}' $HOME/.config/ck/ck.config)
+    local config_file=`ck config`
+    BibDir=$(awk -F "=" '/BibDir/ {print $2}' "$config_file")
+    TagDir=$(awk -F "=" '/TagDir/ {print $2}' "$config_file")
 
     cur="${COMP_WORDS[COMP_CWORD]}"
 

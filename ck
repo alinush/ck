@@ -382,8 +382,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
         ctx.invoke(ck_tag_cmd, citation_key=citation_key)
 
 @ck.command('config')
+@click.option(
+    '-e', '--edit',
+    is_flag=True,
+    default=False,
+    help='Actually opens an editor to edit the file.')
 @click.pass_context
-def ck_config_cmd(ctx):
+def ck_config_cmd(ctx, edit):
     """Lets you edit the config file and prints it at the end."""
 
     ctx.ensure_object(dict)
@@ -391,7 +396,10 @@ def ck_config_cmd(ctx):
 
     config_file = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
 
-    os.system(ck_text_editor + " \"" + config_file + "\"")
+    if not edit:
+        print(config_file)
+    else:
+        os.system(ck_text_editor + " \"" + config_file + "\"")
 
 @ck.command('queue')
 @click.argument('citation_key', required=False, type=click.STRING)
