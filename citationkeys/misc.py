@@ -181,3 +181,6 @@ def print_error(msg):
 
 def print_warning(msg):
     click.secho("WARNING: " + msg, fg="yellow")
+
+def print_success(msg):
+    click.secho(msg, fg="green")

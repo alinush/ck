@@ -179,7 +179,7 @@ def bibent_get_author_initials_ck(bibent):
 def bibtex_to_bibdb(bibtex):
     """Parses the given BibTeX string into potentially multiple bibliography objects"""
     parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-    bibdb = bibtexparser.loads(bibtex)
+    bibdb = bibtexparser.loads(bibtex, parser)
     return bibdb
 
 def bibtex_to_bibent(bibtex):
@@ -191,7 +191,7 @@ def bibent_to_bibtex(bibent):
     bibwriter = bibtexparser.bwriter.BibTexWriter()
     bibent_canonicalize(bibent['ID'], bibent, 0)
 
-    return bibwriter.write(bibent_to_bibdb(bibent))
+    return bibwriter.write(bibent_to_bibdb(bibent)).strip().strip('\n').strip('\r').strip('\t')
 
 def bibpath_rename_ck(destbibfile, citation_key):
     bibent = bibent_from_file(destbibfile)

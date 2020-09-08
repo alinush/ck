@@ -780,38 +780,36 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
             click.echo("Okay, will NOT create .bib file. Exiting...")
             sys.exit(1)
 
-    if markdown == False:
+    # Parse the BibTeX
+    bibent = bibent_from_file(path)
+    has_abstract = False
+
+    if not markdown:
         print("BibTeX for '%s'" % path)
         print()
-        bibtex = file_to_string(path).strip().strip('\n').strip('\r').strip('\t')
-        to_copy = bibtex
+
+        # We print the full thing!
+        to_print = bibent_to_bibtex(bibent)
+
+        # We're not gonna copy the abstract to the clipboard, since usually we don't want it taking up space in .bib files of papers we're writing.
+        has_abstract = 'abstract' in bibent
+        bibent.pop('abstract', None)
+        to_copy = bibent_to_bibtex(bibent)
     else:
-        try:
-            with open(path) as bibf:
-                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-                bibtex = bibtexparser.load(bibf, parser)
-
-            assert len(bibtex.entries) == 1
-        except FileNotFoundError:
-            print(citation_key + ":", "Missing BibTeX file in directory", ck_bib_dir)
-        except:
-            print(citation_key + ":", "Unexpected error")
-
-        bib = bibtex.entries[0]
-        title = bib['title'].strip("{}")
-        authors = bib['author']
-        year = bib['year']
+        title = bibent['title'].strip("{}")
+        authors = bibent['author']
+        year = bibent['year']
         authors = authors.replace("{", "")
         authors = authors.replace("}", "")
         citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
         to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
 
-        if 'booktitle' in bib:
-            venue = bib['booktitle']
-        elif 'journal' in bib:
-            venue = bib['journal']
-        elif 'howpublished' in bib and "\\url" not in bib['howpublished']:
-            venue = bib['howpublished']
+        if 'booktitle' in bibent:
+            venue = bibent['booktitle']
+        elif 'journal' in bibent:
+            venue = bibent['journal']
+        elif 'howpublished' in bibent and "\\url" not in bibent['howpublished']:
+            venue = bibent['howpublished']
         else:
             venue = None
 
@@ -820,16 +818,23 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
 
         to_copy = to_copy +  ", " + year
 
-        url = bibent_get_url(bib)
+        url = bibent_get_url(bibent)
         if url is not None:
             mdurl = "[[URL]](" + url + ")"
             to_copy = to_copy + ", " + mdurl
 
-    print(to_copy)
+        # For Markdown bib's, we print exactly what we copy!
+        to_print = to_copy
+
+    click.secho(to_print, fg='cyan')
 
     if clipboard:
         pyperclip.copy(to_copy)
-        click.echo("\nCopied to clipboard!\n")
+        click.echo()
+        if markdown or not has_abstract:
+            print_success("Copied to clipboard!")
+        else:
+            print_success("Copied to clipboard (without abstract)!")
 
 @ck.command('rename')
 @click.argument('old_citation_key', required=True, type=click.STRING)
