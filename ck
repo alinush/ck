@@ -542,9 +542,10 @@ def ck_info_cmd(ctx, citation_key):
     print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags, include_url)
 
 @ck.command('tags')
+@click.argument('tag', required=False, type=click.STRING)
 @click.pass_context
-def ck_tags_cmd(ctx):
-    """Lists all tags in the library"""
+def ck_tags_cmd(ctx, tag):
+    """Lists all tags in the library. If a <tag> is given as argument, prints matching tags in the library."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -552,7 +553,20 @@ def ck_tags_cmd(ctx):
     ck_tag_dir = ctx.obj['TagDir']
     ck_tags    = ctx.obj['tags']
 
-    print_all_tags(ck_tag_dir)
+    tags = get_all_tags(ck_tag_dir)
+    if tag is None:
+        print_tags(tags)
+    else:
+        matching = []
+        for t in tags:
+            if tag in t:
+                matching.append(t)
+
+        if len(matching) > 0:
+            click.echo("Tags matching '" + tag + "': ", nl=False)
+            print_tags(matching)
+        else:
+            click.secho("No tags matching '" + tag + "' in library.", fg='yellow')
 
 @ck.command('tag')
 @click.option(
