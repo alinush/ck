@@ -594,7 +594,9 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
         else:
             tags = get_all_tags(ck_tag_dir)
             suggested_tags = []
-            tag_extended_regex = '|'.join([ r'\b{}\b'.format(t) for t in tags])
+            tag_extended_regex = '|'.join([ r'\b{}\b'.format(
+                '|'.join(t.split('/'))
+            ) for t in tags])
 
             try:
                 matches = subprocess.check_output("pdfgrep '%s' %s" % (tag_extended_regex, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
