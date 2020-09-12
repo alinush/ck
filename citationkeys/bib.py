@@ -163,12 +163,12 @@ def bibent_get_author_initials_ck(bibent, verbosity):
         return last_name
 
     initials = ""
-    # For single authors, use the first three letters of their last name
+    # For single authors, use the first four letters of their last name
     # TODO(Alin): This won't work for Dutch authors with 'van' in their last name.
     # e.g., for 'van Damme', it will be either 'van' or 'Dam' but would be better to do 'vD' or something like that.
     if len(authors) == 1:
         last_name = get_last_name(authors[0])
-        initials = last_name[0:3]
+        initials = last_name[0:4]
     # For <= 4 authors, we use 'ABCD99'
     else:
         for author in authors:
