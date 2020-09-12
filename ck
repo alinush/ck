@@ -328,10 +328,10 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
         elif default_ck == "FirstAuthorYearTitle":
             citation_key = bibent_get_first_author_year_title_ck(bibent)
         elif default_ck == "InitialsShortYear":
-            citation_key = bibent_get_author_initials_ck(bibent)
+            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
             citation_key += bibent['year'][-2:]
         elif default_ck == "InitialsFullYear":
-            citation_key = bibent_get_author_initials_ck(bibent)
+            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
             citation_key += bibent['year']
         else:
             print_error("Unknown default citation key policy in configuration file: " + default_ck)

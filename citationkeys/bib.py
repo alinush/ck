@@ -128,9 +128,13 @@ def bibent_get_first_author_year_title_ck(bibent):
     citation_key = ''.join([c for c in citation_key if c in string.ascii_lowercase or c in string.digits]) # filter out strange chars
     return citation_key
 
-def bibent_get_author_initials_ck(bibent):
+def bibent_get_author_initials_ck(bibent, verbosity):
+    # replace all newlines by space, so our ' and ' splitting works
+    bibent['author'] = bibent['author'].replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+
     allAuthors = bibent['author'].split(' and ')
-    #print("all authors: ", allAuthors)
+    if verbosity > 0:
+        print("All authors \"" + bibent['author'] + "\" parsed to: ", allAuthors)
     moreThanFour = len(allAuthors) > 4
 
     # get the first four (or less) author names
@@ -139,18 +143,24 @@ def bibent_get_author_initials_ck(bibent):
     else:
         authors = allAuthors[:4]
 
-    #print("authors: ", authors)
+    if verbosity > 0:
+        print("First 3+ authors: ", authors)
     # returns the last name (heuristically) from a string in either <first> <last> or <last>, <first> format
+
     def get_last_name(author):
         # NOTE(Alin): For now, we're restrict ourselves to simple names with A-Z letters only
-        regex = re.compile('[^ a-zA-Z]')
+        regex = re.compile('[^ ,a-zA-Z]')
         author = regex.sub('', author)
-        #print('getting last name of author: ', author)
 
         if ',' in author:
-            return author.split(',')[0]
+            last_name = author.split(',')[0]
         else:
-            return author.split(' ')[-1]
+            last_name = author.split(' ')[-1]
+
+        if verbosity > 0:
+            print("Last name of \"" + author + "\" is: " + last_name)
+
+        return last_name
 
     initials = ""
     # For single authors, use the first three letters of their last name
