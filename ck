@@ -895,8 +895,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
         # replaces only the 1st occurrence of the old CK to deal with the (astronomically-rare?)
         # event where the old CK appears multiple times in the filename
         newfilename = oldfilename.replace(old_citation_key, new_citation_key, 1)
-        if verbosity > 0:
-            click.echo("Renaming '" + oldfilename + ext + "' to '" + newfilename + ext + "' in " + ck_bib_dir)
+        click.echo("Renaming '" + oldfilename + ext + "' to '" + newfilename + ext + "' in " + ck_bib_dir)
 
         # rename file in BibDir
         os.rename(
@@ -904,20 +903,19 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
             os.path.join(ck_bib_dir, newfilename + ext))
 
     # update .bib file citation key
-    if verbosity > 0:
-        click.echo("Renaming CK in .bib file...")
+    click.echo("Renaming CK in .bib file...")
     bibpath_rename_ck(ck_to_bib(ck_bib_dir, new_citation_key), new_citation_key)
 
-    # update all symlinks in TagDir by un-tagging and re-tagging
-    if verbosity > 0:
+    # if the paper is tagged, update all symlinks in TagDir by un-tagging and re-tagging
+    if old_citation_key in ck_tags:
         click.echo("Recreating tag information...")
-    tags = ck_tags[old_citation_key]
-    for tag in tags:
-        if not untag_paper(ck_tag_dir, old_citation_key, tag):
-            print_warning("Could not remove '" + tag + "' tag")
+        tags = ck_tags[old_citation_key]
+        for tag in tags:
+            if not untag_paper(ck_tag_dir, old_citation_key, tag):
+                print_warning("Could not remove '" + tag + "' tag")
 
-        if not tag_paper(ck_tag_dir, ck_bib_dir, new_citation_key, tag):
-            print_warning("Already has '" + tag + "' tag")
+            if not tag_paper(ck_tag_dir, ck_bib_dir, new_citation_key, tag):
+                print_warning("Already has '" + tag + "' tag")
 
 @ck.command('search')
 @click.argument('query', required=True, type=click.STRING)
