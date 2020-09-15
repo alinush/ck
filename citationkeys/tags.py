@@ -139,6 +139,13 @@ def parse_tags(tags_str):
 
 def prompt_for_tags(ctx, prompt):
     readline.set_completer(SimpleCompleter(get_all_tags(ctx.obj['TagDir']), ',').complete)
+
+    # NOTE(Alin): For hierarchical tags like 'arguments/sigma/hidden-order' or 'signatures/blind', the '/' in the tag name confuses the autocompleter.
+    # This fixes that.
+    delims = readline.get_completer_delims()
+    delims = delims.replace('/', '')
+    delims = readline.set_completer_delims(delims)
+
     readline.parse_and_bind('tab: complete')
     tags_str = input(prompt + ' (use Tab to autocomplete): ')
     return parse_tags(tags_str)
