@@ -27,7 +27,13 @@ def notimplemented():
 def file_to_string(path):
     with open(path, 'r') as f:
         data = f.read()
-    
+
+    return data
+
+def file_to_bytes(path):
+    with open(path, 'rb') as f:
+        data = f.read()
+
     return data
 
 def string_to_file(string, path):

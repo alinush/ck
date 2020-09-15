@@ -306,7 +306,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
                 print_error("You must add author(s), year and title to the .bib file.")
                 sys.exit(1)
         else:
-            bibtex = file_to_string(bibpath_tmp)
+            # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+            bibtex = file_to_bytes(bibpath_tmp)
 
     #
     # Invariant: We have the PDF data in pdf_data and the .bib data in bibtex.
