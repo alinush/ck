@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
-from .bib import bibent_get_url
+from .bib import bibent_get_url, bibent_get_venue
 
 # NOTE: Alphabetical order please
 import bibtexparser
@@ -120,8 +120,9 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             year   = bib['year']
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
             url    = bibent_get_url(bib)
+            venue  = bibent_get_venue(bib)
 
-            ck_tuples.append((ck, author, title, year, date, url))
+            ck_tuples.append((ck, author, title, year, date, url, venue))
 
         except FileNotFoundError:
             click.secho(ck + ": Missing BibTeX file in directory " + ck_bib_dir, fg="red", err=True)
@@ -132,8 +133,8 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
 
     return ck_tuples
 
-def print_ck_tuples(cks, tags, include_url=False):
-    for (ck, author, title, year, date, url) in cks:
+def print_ck_tuples(cks, tags, include_url=False, include_venue=False):
+    for (ck, author, title, year, date, url, venue) in cks:
         click.secho(ck, fg='blue', nl=False)
         click.echo(", ", nl=False)
         click.secho(title, fg='green', nl=False)
@@ -150,6 +151,10 @@ def print_ck_tuples(cks, tags, include_url=False):
         if ck in tags:
             click.echo(', ', nl=False)
             click.echo(style_tags(tags[ck]), nl=False)
+
+        if include_venue and venue is not None:
+            click.echo(', ', nl=False)
+            click.secho(venue, fg='cyan', nl=False)
 
         if include_url and url is not None:
             click.echo(', ', nl=False)

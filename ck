@@ -540,7 +540,8 @@ def ck_info_cmd(ctx, citation_key):
     ck_tags    = ctx.obj['tags']
 
     include_url = True
-    print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags, include_url)
+    include_venue = True
+    print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags, include_url, include_venue)
 
 @ck.command('tags')
 @click.argument('tag', required=False, type=click.STRING)
@@ -827,15 +828,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
         to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
 
-        if 'booktitle' in bibent:
-            venue = bibent['booktitle']
-        elif 'journal' in bibent:
-            venue = bibent['journal']
-        elif 'howpublished' in bibent and "\\url" not in bibent['howpublished']:
-            venue = bibent['howpublished']
-        else:
-            venue = None
-
+        venue = bibent_get_venue(bibent)
         if venue != None:
             to_copy = to_copy + ", *in " + venue + "*"
 
@@ -953,7 +946,8 @@ def ck_search_cmd(ctx, query, case_sensitive):
 
     if len(cks) > 0:
         include_url = True
-        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags, include_url)
+        include_venue = True
+        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags, include_url, include_venue)
     else:
         print("No matches!")
 

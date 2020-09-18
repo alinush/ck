@@ -99,6 +99,18 @@ def bibent_to_file(destbibfile, bibent):
     with open(destbibfile, 'w') as bibf:
         bibf.write(bibent_to_bibtex(bibent))
 
+def bibent_get_venue(bibent):
+    if 'booktitle' in bibent:
+        venue = bibent['booktitle']
+    elif 'journal' in bibent:
+        venue = bibent['journal']
+    elif 'howpublished' in bibent and "\\url" not in bibent['howpublished']:
+        venue = bibent['howpublished']
+    else:
+        venue = None
+
+    return venue
+
 # This takes a single 'bibtex[i]' entry (not a vector 'bibtex') as input
 def bibent_get_url(bibent):
     url = None
