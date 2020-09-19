@@ -529,13 +529,6 @@ def ck_info_cmd(ctx, citation_key):
     include_venue = True
     print_ck_tuples(cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity), ck_tags, include_url, include_venue)
 
-@ck.command('sync')
-@click.pass_context
-def ck_sync_tags(ctx):
-    ck_tag_dir = ctx.obj['TagDir']
-    subprocess.check_output("cd %s; git add *; git commit -m 'update %s'; git push; git pull" % (ck_tag_dir, datetime.now()), shell=True)
-
-
 @ck.command('tags')
 @click.argument('tag', required=False, type=click.STRING)
 @click.pass_context
