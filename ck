@@ -101,6 +101,24 @@ def ck(ctx, config_file, verbose):
         ctx.obj['MarkdownEditor']             = config['default']['MarkdownEditor']
         ctx.obj['TagAfterCkAddConflict']      = config['default']['TagAfterCkAddConflict'].lower() == "true"
         ctx.obj['tags']                       = find_tagged_pdfs(ctx.obj['TagDir'], verbose)
+
+        # Maps domain of website to function that handles downloading paper's PDF & BibTeX from it
+        #
+        # TODO(Alex): Change to regex matching
+        # NOTE(Alin): Sure, but for now might be overkill: the only time we need it is for [www.]sciencedirect.com
+        #
+        # TODO(Alex): Incorporate Zotero translators (see https://www.zotero.org/support/translators)
+        ctx.obj['handlers'] = {
+            "link.springer.com"     : springerlink_handler,
+            "arxiv.org"             : arxiv_handler,
+            "rd.springer.com"       : springerlink_handler,
+            "eprint.iacr.org"       : iacreprint_handler,
+            "dl.acm.org"            : dlacm_handler,
+            "epubs.siam.org"        : epubssiam_handler,
+            "ieeexplore.ieee.org"   : ieeexplore_handler,
+            "www.sciencedirect.com" : sciencedirect_handler,
+            "sciencedirect.com"     : sciencedirect_handler,
+        }
     except:
         print_error("Config file '" + config_file + "' is in bad shape. Please edit manually!")
         raise
@@ -193,6 +211,45 @@ def abort_citation_exists(ctx, destpdffile, citation_key):
             # prompt user to tag paper
             ctx.invoke(ck_tag_cmd, citation_key=citation_key)
 
+@ck.command('addbib')
+@click.argument('url', required=True, type=click.STRING)
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_addbib_cmd(ctx, url, citation_key):
+    """Adds the paper's .bib file to the library, without a PDF file,
+       unless one already exists. Uses the specified citation key, if given.
+       Otherwise, uses the DefaultCk policy in the configuration file."""
+
+    verbosity        = ctx.obj['verbosity']
+    handlers         = ctx.obj['handlers']
+    default_ck       = ctx.obj['DefaultCk']
+    ck_bib_dir       = ctx.obj['BibDir']
+    ck_tag_dir       = ctx.obj['TagDir']
+
+    # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
+    # websites from borking.
+    cj = CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    user_agent = UserAgent().random
+
+    # Download .bib file only
+    is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+
+    citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+    click.secho('Will use citation key: %s' % citation_key, fg="yellow")
+
+    destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+
+    # Write the .bib file
+    # (except for the case where it this is a non-handled URL and a .bib file exists)
+    if not os.path.exists(destbibfile):
+        # First, sets the 'ckdateadded' field in the .bib file
+        bibent_set_dateadded(bibent, None)
+        bibent_to_file(destbibfile, bibent)
+    else:
+        print_error("Citation key " + citation_key + " already exists")
+        sys.exit(1)
+
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -210,67 +267,21 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
 
     ctx.ensure_object(dict)
     verbosity        = ctx.obj['verbosity']
+    handlers         = ctx.obj['handlers']
     default_ck       = ctx.obj['DefaultCk']
     ck_bib_dir       = ctx.obj['BibDir']
     ck_tag_dir       = ctx.obj['TagDir']
 
-    parsed_url = urlparse(url)
-    if verbosity > 0:
-        print("Paper's URL:", parsed_url)
-
-    # get domain of website and handle it accordingly
-    #
-    # TODO(Alex): Change to regex matching
-    # NOTE(Alin): Sure, but for now might be overkill: the only time we need it is for [www.]sciencedirect.com
-    #
-    # TODO(Alex): Incorporate Zotero translators (see https://www.zotero.org/support/translators)
-    handlers = {
-        "link.springer.com"     : springerlink_handler,
-        "arxiv.org"             : arxiv_handler,
-        "rd.springer.com"       : springerlink_handler,
-        "eprint.iacr.org"       : iacreprint_handler,
-        "dl.acm.org"            : dlacm_handler,
-        "epubs.siam.org"        : epubssiam_handler,
-        "ieeexplore.ieee.org"   : ieeexplore_handler,
-        "www.sciencedirect.com" : sciencedirect_handler,
-        "sciencedirect.com"     : sciencedirect_handler,
-    }
-
-    # For most handled URLs, the handlers get a parsed index.html object. But,
-    # for others (e.g., IACR ePrint), the handler doesn't need to parse the
-    # page at all since the .pdf and .bib file links are derived directly from
-    # the URL itself.
-    no_index_html = set()
-    no_index_html.add("eprint.iacr.org")
-
     # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
     # websites from borking.
-    domain = parsed_url.netloc
     cj = CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
     user_agent = UserAgent().random
 
-    # This is used to initialize the BeautifoulSoup HTML parser.
-    parser = "lxml" 
+    # Download PDF (and potentially .bib file too, if the URL is handled)
+    is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
 
-    # The PDF and .bib data will be stored in these variables before being written to disk
-    pdf_data = None
-    bibtex = None
-
-    # Download PDF (and potentially .bib file too)
-    is_handled_url = domain in handlers
-    if is_handled_url:
-        soup = None
-        index_html = None
-
-        # e.g., We don't need to download the index.html page for IACR ePrint
-        if domain not in no_index_html:
-            index_html = get_url(opener, url, verbosity, user_agent)
-            soup = BeautifulSoup(index_html, parser)
-
-        handler = handlers[domain]
-        bibtex, pdf_data = handler(opener, soup, parsed_url, ck_bib_dir, parser, user_agent, verbosity)
-    else:
+    if not is_handled:
         click.echo("No handler for URL was found. This is a PDF-only download, so expecting user to give a citation key.")
         
         # If no citation key is given, fail because we can't check .bib file exists until after
@@ -316,34 +327,9 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     #            Either way, we are ready to check the paper does not exist and, if so, save the files.
     #
 
-    # Parse the BibTeX into an object
-    bibent = defaultdict(lambda : '', bibtex_to_bibent(bibtex.decode()))
+    citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
     bibtex = None # make sure we never use this again
-
-    # If no citation key was given as argument, use the DefaultCk policy from the configuration file.
-    # NOTE(Alin): Non-handled URLs always have a citation key, so we need not worry about them.
-    if not citation_key:
-        # We use the DefaultCk policy from the configuration file to determine the citation key, if none was given
-        if default_ck == "KeepBibtex":
-            citation_key = bibent['ID']
-        elif default_ck == "FirstAuthorYearTitle":
-            citation_key = bibent_get_first_author_year_title_ck(bibent)
-        elif default_ck == "InitialsShortYear":
-            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
-            citation_key += bibent['year'][-2:]
-        elif default_ck == "InitialsFullYear":
-            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
-            citation_key += bibent['year']
-        else:
-            print_error("Unknown default citation key policy in configuration file: " + default_ck)
-            sys.exit(1)
-            
-        # Something went wrong if the citation key is empty, so exit.
-        assert len(citation_key) > 0
-
-    # Set the citation key in the BibTeX object
     click.secho('Will use citation key: %s' % citation_key, fg="yellow")
-    bibent['ID'] = citation_key
     
     # Derive PDF and .bib file paths from citation key.
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
@@ -362,7 +348,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     # TODO(Alin): This makes the flow of 'ck add' too complicated to follow.
     # We should simplify it by adding 'ck updatepdf' and 'ck updatebib' as commands used to update the .bib and .pdf files explicitly.
     # Then, 'ck add' should always check that neither a PDF nor a .bib file exists.
-    if is_handled_url and os.path.exists(destbibfile):
+    if is_handled and os.path.exists(destbibfile):
         abort_citation_exists(ctx, destbibfile, citation_key)
         sys.exit(1)
     

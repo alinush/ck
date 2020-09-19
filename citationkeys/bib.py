@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
@@ -204,6 +205,35 @@ def bibtex_to_bibdb(bibtex):
 def bibtex_to_bibent(bibtex):
     """Returns a bibliography object from a BibTeX string'"""
     return bibtex_to_bibdb(bibtex).entries[0]
+
+def bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck_policy, verbosity):
+    bibent = defaultdict(lambda : '', bibtex_to_bibent(bibtex.decode()))
+
+    # If no citation key was given as argument, use the DefaultCk policy from the configuration file.
+    # NOTE(Alin): Non-handled URLs always have a citation key, so we need not worry about them.
+    if not citation_key:
+        # We use the DefaultCk policy from the configuration file to determine the citation key, if none was given
+        if default_ck_policy == "KeepBibtex":
+            citation_key = bibent['ID']
+        elif default_ck_policy == "FirstAuthorYearTitle":
+            citation_key = bibent_get_first_author_year_title_ck(bibent)
+        elif default_ck_policy == "InitialsShortYear":
+            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
+            citation_key += bibent['year'][-2:]
+        elif default_ck_policy == "InitialsFullYear":
+            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
+            citation_key += bibent['year']
+        else:
+            print_error("Unknown default citation key policy in configuration file: " + default_ck_policy)
+            sys.exit(1)
+
+        # Something went wrong if the citation key is empty, so exit.
+        assert len(citation_key) > 0
+
+    # Set the citation key in the BibTeX object
+    bibent['ID'] = citation_key
+
+    return citation_key, bibent
 
 def bibent_to_bibtex(bibent):
     """Returns a BibTeX string for the bibliography object'"""

@@ -144,6 +144,7 @@ def prompt_for_tags(ctx, prompt):
     # This fixes that.
     delims = readline.get_completer_delims()
     delims = delims.replace('/', '')
+    delims = delims.replace('-', '')
     delims = readline.set_completer_delims(delims)
 
     readline.parse_and_bind('tab: complete')
