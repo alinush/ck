@@ -596,12 +596,16 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
         else:
             tags = get_all_tags(ck_tag_dir)
             suggested_tags = []
+            # TODO(Alin): I'm confused as to what the difference between "\baccumulators\b|\bmerkle\b" and "\baccumulators|merkle\b" is
             tag_extended_regex = '|'.join([ r'\b{}\b'.format(
                 '|'.join(t.split('/'))
             ) for t in tags])
 
             try:
                 matches = subprocess.check_output("pdfgrep '%s' %s" % (tag_extended_regex, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
+
+                if verbosity > 1:
+                    click.echo("'pdfgrep \"" + tag_extended_regex + "\"' returned matches: " + matches)
             except subprocess.CalledProcessError as e:
                 print_warning("Not suggesting any tags because 'pdfgrep' returned with non-zero return code: " + str(e.returncode))
                 matches = ''
