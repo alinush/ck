@@ -236,7 +236,8 @@ def ck_addbib_cmd(ctx, url, citation_key):
     is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
 
     citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
-    click.secho('Will use citation key: %s' % citation_key, fg="yellow")
+    click.echo("Will use citation key: ", nl=False)
+    click.secho(citation_key, fg="blue")
 
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
 
@@ -329,7 +330,8 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
 
     citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
     bibtex = None # make sure we never use this again
-    click.secho('Will use citation key: %s' % citation_key, fg="yellow")
+    click.echo("Will use citation key: ", nl=False)
+    click.secho(citation_key, fg="blue")
     
     # Derive PDF and .bib file paths from citation key.
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
@@ -591,21 +593,29 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
             stderr=subprocess.DEVNULL,
         )
 
+        tags = get_all_tags(ck_tag_dir)
+
         if completed.returncode != 0: 
             print_warning("Not suggesting any tags because 'pdfgrep' is not installed.")
-        else:
-            tags = get_all_tags(ck_tag_dir)
+        elif len(tags) > 0:
+            # NOTE(Alin): Tags can be hierarchical, e.g.,, 'accumulators/merkle', so we split them up into separate words by '/'
+            words = set()
+            for t in tags:
+                for w in t.split('/'):
+                    words.add(w)
+            pattern = ' -e '.join(sorted(words))
+            pattern = '-e ' + pattern
             suggested_tags = []
-            # TODO(Alin): I'm confused as to what the difference between "\baccumulators\b|\bmerkle\b" and "\baccumulators|merkle\b" is
-            tag_extended_regex = '|'.join([ r'\b{}\b'.format(
-                '|'.join(t.split('/'))
-            ) for t in tags])
 
             try:
-                matches = subprocess.check_output("pdfgrep '%s' %s" % (tag_extended_regex, ck_to_pdf(ck_bib_dir, citation_key)), shell=True).decode()
+                pdfpath = ck_to_pdf(ck_bib_dir, citation_key)
+                if verbosity > 1:
+                    click.echo("Calling pdfgrep " + pattern + " '" + pdfpath + "'")
+
+                matches = subprocess.check_output("pdfgrep %s %s" % (pattern, pdfpath), shell=True).decode()
 
                 if verbosity > 1:
-                    click.echo("'pdfgrep \"" + tag_extended_regex + "\"' returned matches: " + matches)
+                    click.echo("pdfgrep returned matches: " + matches)
             except subprocess.CalledProcessError as e:
                 print_warning("Not suggesting any tags because 'pdfgrep' returned with non-zero return code: " + str(e.returncode))
                 matches = ''
@@ -615,9 +625,11 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
                     suggested_tags.append((tag, matches.count(tag)))
 
             suggested_tags = sorted(suggested_tags, key=lambda x: x[1], reverse=True)
+            suggested_tags = [st[0] for st in suggested_tags]
 
             if len(suggested_tags) > 0:
-                click.secho("Suggested tags: " + ','.join([x[0] for x in suggested_tags]), fg="cyan")
+                click.echo("Suggested tags: ", nl=False)
+                print_tags(suggested_tags)
 
         # returns array of tags
         tags = prompt_for_tags(ctx, "Please enter tag(s) for '" + click.style(citation_key, fg="blue") + "'")
