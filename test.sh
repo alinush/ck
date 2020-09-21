@@ -23,6 +23,7 @@ https://eprint.iacr.org/2018/721
 https://eprint.iacr.org/2018/721.pdf
 https://ieeexplore.ieee.org/document/7958589
 "
+# TODO: Test different kind of siam link w/ doi/abs in link: https://epubs.siam.org/doi/abs/10.1137/S0097539701398521
 
 
 pdf_hashes=(

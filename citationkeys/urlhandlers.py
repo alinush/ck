@@ -332,8 +332,12 @@ def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, b
     path = parsed_url.path
 
     splitpath = path.split('/')
-    doi_start = splitpath[2]
-    doi_end   = splitpath[3]
+    if '/doi/abs' in path:
+        doi_start = splitpath[3]
+        doi_end   = splitpath[4]
+    else: # if just /doi in URL
+        doi_start = splitpath[2]
+        doi_end   = splitpath[3]
     doi       = doi_start + '/' + doi_end
     doi_alt   = doi_start + '%2F' + doi_end
     
