@@ -269,7 +269,14 @@ def sciencedirect_handler(opener, soup, parsed_url, parser, user_agent, verbosit
 def springerlink_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
-    paper_id = path[len('chapter/'):]
+    if 'chapter/' in path:
+        paper_id = path[len('chapter/'):]
+    elif 'book/' in path:
+        print_error("We do not yet support book/ in SpringerLink URLs")
+    else:
+        print_error("Expected chapter/ in SpringerLink URL")
+        sys.exit(1)
+
     print("Paper ID:", paper_id)
 
     # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
@@ -318,11 +325,7 @@ def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
         bibtex = soup.select_one('#bibtex > textarea').get_text().strip()
         bibtex = bibtex.encode('utf-8')
 
-    #elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
-    # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
-
     return bibtex, download_pdf(opener, user_agent, pdfurl, verbosity)
-
 
 def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc

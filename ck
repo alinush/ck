@@ -235,6 +235,13 @@ def ck_addbib_cmd(ctx, url, citation_key):
     # Download .bib file only
     is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
 
+    if not is_handled:
+        print_error("This type of URL is not yet supported")
+        sys.exit(1)
+
+    if verbosity > 0:
+        print("Downloaded BibTeX: " + str(bibtex))
+
     citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
     click.echo("Will use citation key: ", nl=False)
     click.secho(citation_key, fg="blue")
