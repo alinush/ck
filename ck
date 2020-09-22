@@ -765,7 +765,8 @@ def ck_open_cmd(ctx, filename):
             except:
                 print_warning("Could not parse BibTeX:")
                 traceback.print_exc()
-
+    elif extension.lower() == '.tex':
+        os.system(ck_text_editor + " " + fullpath)
     elif extension.lower() == '.md':
         # NOTE: Need to cd to the directory first so vim picks up the .vimrc there
         os.system('cd "' + ck_bib_dir + '" && ' + ck_markdown_editor + ' "' + filename + '"')
