@@ -236,8 +236,8 @@ def ck_addbib_cmd(ctx, url, citation_key):
     is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
 
     if not is_handled:
-        print_error("This type of URL is not yet supported")
-        sys.exit(1)
+        click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
+        bibtex = download_bib(opener, user_agent, url, verbosity)
 
     if verbosity > 0:
         print("Downloaded BibTeX: " + str(bibtex))
