@@ -1044,6 +1044,8 @@ def ck_list_cmd(ctx, pathnames, url, short, is_relative_to_tagdir):
         if verbosity > 0:
             print(cks)
 
+        # TODO: add -r flag for recursive (which is default right now)
+        # TODO: change -r/--relative flag to -t/--tag maybe
         ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
 
         sorted_cks = sorted(ck_tuples, key=lambda item: item[4])
