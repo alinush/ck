@@ -566,7 +566,7 @@ def ck_tags_cmd(ctx, matching_tag):
 
 @ck.command('tag')
 @click.argument('citation_key', required=True, type=click.STRING)
-@click.argument('tags', required=True, nargs=-1, type=click.STRING)
+@click.argument('tags', required=False, nargs=-1, type=click.STRING)
 @click.option(
     '-s', '--silent',
     is_flag=True,
@@ -1084,7 +1084,7 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, recursive, short, is_tags, url):
 
 @ck.command('genbib')
 @click.argument('output-bibtex-file', required=True, type=click.File('a'))
-@click.argument('tags', nargs=-1, type=click.STRING)
+@click.argument('tags', required=False, nargs=-1, type=click.STRING)
 @click.option(
     '-r', '--recursive',
     is_flag=True,
