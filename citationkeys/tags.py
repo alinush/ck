@@ -131,10 +131,14 @@ def style_tags(taglist):
     tagstr = ', '.join(tags)
     return tagstr
 
-def parse_tags(tags_str):
-    tags = tags_str.split(',')
+def tags_filter_whitespace(tags):
     tags = [t.strip() for t in tags]
     tags = list(filter(lambda t: len(t) > 0, tags))
+    return tags 
+
+def parse_tags(tags_str, splitter=','):
+    tags = tags_str.split(splitter)
+    tags = tags_filter_whitespace(tags)
     return tags
 
 def prompt_for_tags(ctx, prompt):

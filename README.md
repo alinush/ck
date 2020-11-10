@@ -73,6 +73,7 @@ _A:_ Have each version as a different CK, since it might contain additional info
 TODOs
 -----
 
+ - `ck tag/untag/genbib/copypdfs` autocompletion of tags
  - figure out how to have a `setup.py` that installs this thing
     + add a `requirements.txt` too
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
@@ -98,10 +99,9 @@ TODOs
         - add sort-by options
             - need sort by most recently added (with date & time displayed)
         - list all conferences across papers
+        - when invoked without recursion, tell user what other subtags are there in the current subdir?
     - `open` subcommand
         - add support for various associated files: .bib, .html, .md, .notes.\[0-9\]\*.pdf, .slides.pdf, .etc
-        - [DONE] autocomplete citation key
-            + see [bash guide here](https://tuzz.tech/blog/how-bash-completion-works)
         - if you type in a partial citation key, should list all matches
             - if just one match, should just open it, displaying a warning that it only partially matched so as to not train you to use the wrong CK
         - if you type an ambiguous citation key (lowercase / uppercase), maybe you should be prompted for what to open, because there won't be many matches.

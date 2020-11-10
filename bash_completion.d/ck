@@ -7,10 +7,12 @@ _citation_key_ck_completion() {
     # this stops autocompletion from adding the same word multiple times after it was added the first time
 
     local config_file=`ck config`
-    BibDir=$(awk -F "=" '/BibDir/ {print $2}' "$config_file")
-    TagDir=$(awk -F "=" '/TagDir/ {print $2}' "$config_file")
+    local BibDir=$(awk -F "=" '/BibDir/ {print $2}' "$config_file")
+    local TagDir=$(awk -F "=" '/TagDir/ {print $2}' "$config_file")
+    IFS=' ' read BibDir <<<"$BibDir" # removes leading and trailing whitespace (as defined in IFS)
+    IFS=' ' read TagDir <<<"$TagDir" # removes leading and trailing whitespace
 
-    cur="${COMP_WORDS[COMP_CWORD]}"
+    local cur="${COMP_WORDS[COMP_CWORD]}"
 
     if [ "${COMP_CWORD}" == "1" ]
     then
@@ -23,39 +25,69 @@ _citation_key_ck_completion() {
 
         case ${COMP_WORDS[1]} in
             b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|tag|u|un|unt|unta|untag)
+            # NOTE: We do want these commands to be restricted to CKs in the current TagDir subdirectory, if that's where the user currently is.
             local candidates=`ck list -s`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             rea|read)
-            local candidates=`ck list -r -s queue/to-read queue/finished`
+            local candidates=`ck list -t -s queue/to-read queue/finished`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             d|de|deq|dequ|deque|dequeu|dequeue)
-            local candidates=`ck list -r -s queue/to-read`
+            local candidates=`ck list -t -s queue/to-read`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             f|fi|fin|fini|finish|finishe|finished)
-            local candidates=`ck list -r -s queue/to-read queue/reading`
+            local candidates=`ck list -t -s queue/to-read queue/reading`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             l|li|lis|list)
-            if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-r" ]; then
-                # we don't complete for relative paths for now
-                # TODO
-		true
-            else
-                local candidates=`find ${TagDir} -type d -not -path "*/.git*"`
-                local IFS=$'\n' # avoid confusion about spaces
-                COMPREPLY=(`compgen -W "${candidates[@]}" -- ${cur}`)
+            if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-t" ]; then
+                # When -t is given, cd to TagDir so the autocompletion only suggests tags
+                cd "$TagDir"
             fi
+
+            # WARNING: I simply copy, pasted & modified 'cd' bash_completion code here. Proceed with caution.
+            local IFS=$'\n' i j k
+            cur=
+            _get_comp_words_by_ref cur
+
+            # try to allow variable completion
+            if [[ "$cur" == ?(\\)\$* ]]; then
+                COMPREPLY=( $( compgen -v -P '$' -- "${cur#?(\\)$}" ) )
+                return 0
+            fi
+
+            _compopt_o_filenames
+
+            # Use standard dir completion if no CDPATH or parameter starts with /,
+            # ./ or ../
+            if [[ "$cur" == ?(.)?(.)/* ]]; then
+                _filedir -d
+                return 0
+            fi
+
+            local -r mark_dirs=$(_rl_enabled mark-directories && echo y)
+            local -r mark_symdirs=$(_rl_enabled mark-symlinked-directories && echo y)
+
+            _filedir -d
+
+            if [[ ${#COMPREPLY[@]} -eq 1 ]]; then
+                i=${COMPREPLY[0]}
+                if [[ "$i" == "$cur" && $i != "*/" ]]; then
+                    COMPREPLY[0]="${i}/"
+                fi
+            fi
+
+            return 0
             ;;
         esac
     fi
