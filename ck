@@ -374,8 +374,9 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
 
     # Prompt the user to tag the paper
     if not no_tag_prompt:
-        # TODO(Alin): Print abstract, authors, year & title to the user and prompt user for tags!
-        ctx.invoke(ck_tag_cmd, citation_key=citation_key)
+        # First, open the PDF so the user can read it before asking them for the tags
+        ctx.invoke(ck_open_cmd, filename=citation_key)
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, silent=True)
 
 @ck.command('config')
 @click.option(
@@ -490,7 +491,7 @@ def ck_untag_cmd(ctx, force, silent, citation_key, tags):
     ck_tag_dir = ctx.obj['TagDir']
     ck_tags    = ctx.obj['tags']
         
-    if citation_key is None and tags is None:
+    if citation_key is None and len(tags) == 0:
         # If no paper was specified, detects untagged papers and asks the user to tag them.
         untagged_pdfs = find_untagged_pdfs(ck_bib_dir, ck_tag_dir, list_cks(ck_bib_dir, False), ck_tags.keys(), verbosity)
         if len(untagged_pdfs) > 0:
@@ -506,7 +507,7 @@ def ck_untag_cmd(ctx, force, silent, citation_key, tags):
         else:
             click.echo("No untagged papers.")
     else:
-        if tags is not None:
+        if len(tags) == 0:
             for tag in tags:
                 if untag_paper(ck_tag_dir, citation_key, tag):
                     click.secho("Removed '" + tag + "' tag", fg="green")
@@ -585,13 +586,14 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
     #if not silent:
     #    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
 
-    ctx.invoke(ck_info_cmd, citation_key=citation_key)
+    if not silent:
+        ctx.invoke(ck_info_cmd, citation_key=citation_key)
 
     if not ck_exists(ck_bib_dir, citation_key):
         print_error(citation_key + " has no PDF file.")
         sys.exit(1)
 
-    if tags is None:
+    if len(tags) == 0:
         completed = subprocess.run(
             ['which pdfgrep'],
             shell=True,
