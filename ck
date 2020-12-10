@@ -507,7 +507,7 @@ def ck_untag_cmd(ctx, force, silent, citation_key, tags):
         else:
             click.echo("No untagged papers.")
     else:
-        if len(tags) == 0:
+        if len(tags) != 0:
             for tag in tags:
                 if untag_paper(ck_tag_dir, citation_key, tag):
                     click.secho("Removed '" + tag + "' tag", fg="green")
