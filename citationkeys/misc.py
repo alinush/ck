@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from .tags import style_tags
-from .bib import bibent_get_url, bibent_get_venue
+from .bib import bibent_get_url, bibent_get_venue, new_bibtex_parser
 
 # NOTE: Alphabetical order please
 import bibtexparser
@@ -81,8 +81,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
 
         try:
             with open(bibfile) as bibf:
-                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-                bibtex = bibtexparser.load(bibf, parser)
+                bibtex = bibtexparser.load(bibf, new_bibtex_parser())
 
             #print(bibtex.entries)
             #print("Comments: ")

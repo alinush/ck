@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 # NOTE: Alphabetical order please
+from bibtexparser.latexenc import latex_to_unicode #, string_to_latex, protect_uppercase
+from bibtexparser.customization import homogenize_latex_encoding, convert_to_unicode, page_double_hyphen
 from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
@@ -40,6 +42,36 @@ def strip_accents(s):
         )
     except:
         return s
+
+def new_bibtex_parser():
+    parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
+
+    # TODO(Alin): For now, this serves no purpose, but this is where we might want to canonicalize the BibTeX
+    def customizations(record):
+        """Use some functions delivered by the library
+
+        :param record: a record
+        :returns: -- customized record
+        """
+        #record = type(record)
+        #record = author(record)	# would split the 'author' field into an array (also see splitname(string singlename) and getnames(list names))
+        #record = editor(record)
+        record = page_double_hyphen(record)
+        #record = journal(record)
+        #record = keyword(record)
+        #record = link(record)
+        #record = doi(record)
+        #record = homogenize_latex_encoding(record)
+
+        # NOTE(Alin): convert_to_unicode(record) seems to change valid LaTeX in the .bib file like \url{...} to Unicode junk, which we don't want.
+        # Furthermore, we want to keep the LaTeX when copying the BibTeX to the clipboard.
+        #record = convert_to_unicode(record)
+
+        return record
+
+    parser.customization = customizations
+
+    return parser
 
 def bibent_canonicalize(ck, bibent, verbosity):
     updated = False
@@ -85,8 +117,7 @@ def bibdb_from_file(destbibfile):
     """Returns a bibdb from a BibTeX file"""
     with open(destbibfile) as bibf:
         # NOTE(Alin): Without this specially-created parser, the library fails parsing .bib files with 'month = jun' or 'month = sep' fields.
-        parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-        bibdb = bibtexparser.load(bibf, parser)
+        bibdb = bibtexparser.load(bibf, new_bibtex_parser())
 
         return bibdb
 
@@ -198,8 +229,7 @@ def bibent_get_author_initials_ck(bibent, verbosity):
 
 def bibtex_to_bibdb(bibtex):
     """Parses the given BibTeX string into potentially multiple bibliography objects"""
-    parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-    bibdb = bibtexparser.loads(bibtex, parser)
+    bibdb = bibtexparser.loads(bibtex, new_bibtex_parser())
     return bibdb
 
 def bibtex_to_bibent(bibtex):
@@ -246,6 +276,9 @@ def bibent_to_markdown(bibent):
     citation_key = bibent['ID']
     title = bibent['title'].strip("{}")
     authors = bibent['author']
+    # Convert letters accented via LaTeX (e.g., {\'{e}}) to Unicode, so they display in Markdown
+    authors = latex_to_unicode(authors)
+
     year = None
     if 'year' in bibent:
         year = bibent['year']

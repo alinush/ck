@@ -962,8 +962,7 @@ def ck_cleanbib_cmd(ctx):
             print("Parsing BibTeX for " + ck)
         try:
             with open(bibfile) as bibf:
-                parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
-                bibtex = bibtexparser.load(bibf, parser)
+                bibtex = bibtexparser.load(bibf, new_bibtex_parser())
 
             assert len(bibtex.entries) == 1
             assert type(ck) == str
