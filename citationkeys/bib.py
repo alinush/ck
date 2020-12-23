@@ -242,6 +242,32 @@ def bibent_to_bibtex(bibent):
 
     return bibwriter.write(bibent_to_bibdb(bibent)).strip().strip('\n').strip('\r').strip('\t')
 
+def bibent_to_markdown(bibent):
+    citation_key = bibent['ID']
+    title = bibent['title'].strip("{}")
+    authors = bibent['author']
+    year = None
+    if 'year' in bibent:
+        year = bibent['year']
+    authors = authors.replace("{", "")
+    authors = authors.replace("}", "")
+    citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
+    to_markdown = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
+
+    venue = bibent_get_venue(bibent)
+    if venue != None:
+        to_markdown = to_markdown + ", *in " + venue + "*"
+
+    if year != None:
+        to_markdown = to_markdown +  ", " + year
+
+    url = bibent_get_url(bibent)
+    if url is not None:
+        mdurl = "[[URL]](" + url + ")"
+        to_markdown = to_markdown + ", " + mdurl
+
+    return to_markdown
+
 def bibpath_rename_ck(destbibfile, citation_key):
     bibent = bibent_from_file(destbibfile)
     bibent['ID'] = citation_key

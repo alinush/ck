@@ -830,25 +830,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         bibent.pop('abstract', None)
         to_copy = bibent_to_bibtex(bibent)
     else:
-        title = bibent['title'].strip("{}")
-        authors = bibent['author']
-        year = bibent['year']
-        authors = authors.replace("{", "")
-        authors = authors.replace("}", "")
-        citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
-        to_copy = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
-
-        venue = bibent_get_venue(bibent)
-        if venue != None:
-            to_copy = to_copy + ", *in " + venue + "*"
-
-        to_copy = to_copy +  ", " + year
-
-        url = bibent_get_url(bibent)
-        if url is not None:
-            mdurl = "[[URL]](" + url + ")"
-            to_copy = to_copy + ", " + mdurl
-
+        to_copy = bibent_to_markdown(bibent)
         # For Markdown bib's, we print exactly what we copy!
         to_print = to_copy
 
@@ -1085,8 +1067,14 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, recursive, short, is_tags, url):
         click.echo(str(len(cks)) + " PDFs listed")
 
 @ck.command('genbib')
-@click.argument('output-bibtex-file', required=True, type=click.File('a'))
+@click.argument('output-file', required=True, type=click.File('a'))
 @click.argument('tags', required=False, nargs=-1, type=click.STRING)
+@click.option(
+    '-m', '--markdown',
+    is_flag=True,
+    default=False,
+    help='Outputs bibliography in Markdown format'
+    )
 @click.option(
     '-r', '--recursive',
     is_flag=True,
@@ -1094,10 +1082,10 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, recursive, short, is_tags, url):
     help='Includes CKs that are recursively-tagged too.'
 )
 @click.pass_context
-def ck_genbib(ctx, output_bibtex_file, tags, recursive):
-    """Generates a .bib file of papers tagged with the specified tags.
-       If the specified .bib file already exists, just appends to it.
-       If no tags are given, generates a .bib file of all papers in the BibDir."""
+def ck_genbib_cmd(ctx, output_file, tags, markdown, recursive):
+    """Generates a bibliography file of papers tagged with the specified tags.
+       If the specified bibliography file already exists, just appends to it.
+       If no tags are given, generates a bibliography file of all papers in the BibDir."""
 
     ctx.ensure_object(dict)
     verbosity  = ctx.obj['verbosity']
@@ -1113,17 +1101,27 @@ def ck_genbib(ctx, output_bibtex_file, tags, recursive):
 
     num_copied = 0
     for ck in cks:
-        bibfilepath = ck_to_bib(ck_bib_dir, ck)
+        try:
+            bibfilepath = ck_to_bib(ck_bib_dir, ck)
 
-        if os.path.exists(bibfilepath):
-            num_copied += 1
-            bibtex = file_to_string(bibfilepath)
-            output_bibtex_file.write(bibtex + '\n')
+            if os.path.exists(bibfilepath):
+                num_copied += 1
+
+                bibtex = file_to_string(bibfilepath)
+                if markdown:
+                    bibstr = bibent_to_markdown(bibtex_to_bibent(bibtex))
+                else:
+                    bibstr = bibtex
+                
+                bibstr = bibstr.strip()
+                output_file.write(bibstr + '\n\n')
+        except:
+            print_error("Something went wrong while parsing BibTeX for " + style_ck(ck))
 
     if num_copied == 0:
-        print_warning("No BibTeX entries were written to '" + output_bibtex_file.name + "'")
+        print_warning("No BibTeX entries were written to '" + output_file.name + "'")
     else:
-        print_success("Wrote " + str(num_copied) + " BibTeX entries to '" + output_bibtex_file.name + "'")
+        print_success("Wrote " + str(num_copied) + " BibTeX entries to '" + output_file.name + "'")
 
 @ck.command('copypdfs')
 @click.argument('output-dir', required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True))
@@ -1135,7 +1133,7 @@ def ck_genbib(ctx, output_bibtex_file, tags, recursive):
     help='Copies CKs that are recursively-tagged too.'
 )
 @click.pass_context
-def ck_copypdfs(ctx, output_dir, tags, recursive):
+def ck_copypdfs_cmd(ctx, output_dir, tags, recursive):
     """Copies all PDFs tagged with the specified tags into the specified output directory.""" 
 
     ctx.ensure_object(dict)
