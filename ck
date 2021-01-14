@@ -415,7 +415,7 @@ def ck_queue_cmd(ctx, citation_key):
         click.secho("Papers that remain to be read:", bold=True)
         click.echo()
 
-        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/to-read')])
+        ctx.invoke(ck_list_cmd, tag_names_or_subdirs=[os.path.join(ck_tag_dir, 'queue/to-read')])
 
 @ck.command('dequeue')
 @click.argument('citation_key', required=True, type=click.STRING)
@@ -447,7 +447,7 @@ def ck_read_cmd(ctx, citation_key):
         click.secho("Papers you are currently reading:", bold=True)
         click.echo()
 
-        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/reading')])
+        ctx.invoke(ck_list_cmd, tag_names_or_subdirs=[os.path.join(ck_tag_dir, 'queue/reading')])
 
 @ck.command('finished')
 @click.argument('citation_key', required=False, type=click.STRING)
@@ -466,7 +466,7 @@ def ck_finished_cmd(ctx, citation_key):
         click.secho("Papers you have finished reading:", bold=True)
         click.echo()
 
-        ctx.invoke(ck_list_cmd, pathnames=[os.path.join(ck_tag_dir, 'queue/finished')])
+        ctx.invoke(ck_list_cmd, tag_names_or_subdirs=[os.path.join(ck_tag_dir, 'queue/finished')])
 
 @ck.command('untag')
 @click.argument('citation_key', required=False, type=click.STRING)
