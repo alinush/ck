@@ -40,8 +40,18 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
         content_type = response.getheader("Content-Type")
         #click.echo("Content-Type: " + str(content_type))
         # throw if bad content type
-        if restrict_content_type is not None and content_type.startswith(restrict_content_type) is False:
-            raise RuntimeError("Expected this to be URL to a PDF, but got '" + content_type + "' Content-Type")
+        found = False
+        if restrict_content_type is not None:
+            # we allow user to either pass a string, or a list of strings for this
+            if not isinstance(restrict_content_type, list):
+                restrict_content_type = [ restrict_content_type ]
+
+            for r in restrict_content_type:
+                if content_type.startswith(r):
+                    found = True
+
+            if not found:
+                raise RuntimeError("Expected this to be URL to " + str(restrict_content_type) + " but got '" + content_type + "' Content-Type")
     except urllib.error.HTTPError as err:
         print("HTTP Error Code: ", err.code)
         print("HTTP Error Reason: ", err.reason)
@@ -71,7 +81,7 @@ def download_bib(opener, user_agent, biburl, verbosity):
 
 def download_pdf(opener, user_agent, pdfurl, verbosity):
     if pdfurl is not None:
-        pdf_data = get_url(opener, pdfurl, verbosity, user_agent, "application/pdf")
+        pdf_data = get_url(opener, pdfurl, verbosity, user_agent, ["application/pdf", "application/octet-stream"])
         return pdf_data
     return None
 
