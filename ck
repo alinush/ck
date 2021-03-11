@@ -868,7 +868,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
         sys.exit(1)
 
     # find all files associated with the CK
-    files = glob.glob(os.path.join(ck_bib_dir, old_citation_key) + '*')
+    files = glob.glob(os.path.join(ck_bib_dir, old_citation_key) + '.*')
     for f in files:
         path_noext, ext = os.path.splitext(f)
         # e.g.,
