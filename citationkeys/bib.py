@@ -192,9 +192,9 @@ def bibent_get_author_initials_ck(bibent, verbosity):
     # returns the last name (heuristically) from a string in either <first> <last> or <last>, <first> format
 
     def get_last_name(author):
-        # NOTE(Alin): For now, we're restrict ourselves to simple names with A-Z letters only
+        # NOTE(Alin): Removes everything but the characters below. (i.e., for now, we're restrict ourselves to simple names with A-Z letters only)
         regex = re.compile('[^ ,a-zA-Z]')
-        author = regex.sub('', author)
+        author = regex.sub('', author).strip()  # Also, remove leading/trailing spaces
 
         if ',' in author:
             last_name = author.split(',')[0]
@@ -218,7 +218,6 @@ def bibent_get_author_initials_ck(bibent, verbosity):
         for author in authors:
             # the author name format could be "<first> <last>" or "<last>, <first>"
             last_name = get_last_name(author)
-            #print('last name of author', author, 'is', last_name)
             initials += last_name[0].upper()
     
     # If we had more than 4 authors, then we use 'ABC+99'
