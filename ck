@@ -793,13 +793,22 @@ def ck_open_cmd(ctx, filename):
     help='To (not) copy the BibTeX to clipboard.'
     )
 @click.option(
-    '-m', '--markdown',
-    is_flag=True,
+    '-b', '--bibtex', 'fmt', flag_value='bibtex',
+    default=True,
+    help='Output as a BibTeX citation'
+    )
+@click.option(
+    '-m', '--markdown', 'fmt', flag_value='markdown',
     default=False,
     help='Output as a Markdown citation'
     )
+@click.option(
+    '-t', '--text', 'fmt', flag_value='text',
+    default=False,
+    help='Output as a plain text citation'
+    )
 @click.pass_context
-def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
+def ck_bib_cmd(ctx, citation_key, clipboard, fmt):
     """Prints the paper's BibTeX and copies it to the clipboard."""
 
     ctx.ensure_object(dict)
@@ -818,7 +827,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
     bibent = bibent_from_file(path)
     has_abstract = False
 
-    if not markdown:
+    if fmt == "bibtex":
         click.echo("BibTeX for '%s'" % path, err=True)
         click.echo()
 
@@ -829,10 +838,17 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         has_abstract = 'abstract' in bibent
         bibent.pop('abstract', None)
         to_copy = bibent_to_bibtex(bibent)
-    else:
+    elif fmt == "markdown":
         to_copy = bibent_to_markdown(bibent)
         # For Markdown bib's, we print exactly what we copy!
         to_print = to_copy
+    elif fmt == "text":
+        to_copy = bibent_to_text(bibent)
+        # For plain text bib's, we print exactly what we copy!
+        to_print = to_copy
+    else:
+        print_error("Code for parsing the citation format is wrong.")
+        sys.exit(1)
 
     click.secho(to_print, fg='cyan')
 
@@ -840,10 +856,13 @@ def ck_bib_cmd(ctx, citation_key, clipboard, markdown):
         pyperclip.copy(to_copy)
         click.echo(err=True)
         # NOTE: We print to stderr since we want to allow the user to send the BibTeX output of 'ck genbib TXN20 >>references.bib' to a .bib file.
-        if markdown or not has_abstract:
+        if fmt != "bibtex":
             click.echo("Copied to clipboard!", err=True)
         else:
-            click.echo("Copied to clipboard (without abstract)!", err=True)
+            if has_abstract:
+                click.echo("Copied to clipboard, but without the abstract!", err=True)
+            else:
+                click.echo("Copied to clipboard!", err=True)
 
 @ck.command('rename')
 @click.argument('old_citation_key', required=True, type=click.STRING)

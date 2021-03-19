@@ -272,6 +272,12 @@ def bibent_to_bibtex(bibent):
     return bibwriter.write(bibent_to_bibdb(bibent)).strip().strip('\n').strip('\r').strip('\t')
 
 def bibent_to_markdown(bibent):
+    return bibent_to_fmt(bibent, 'markdown')
+
+def bibent_to_text(bibent):
+    return bibent_to_fmt(bibent, 'text')
+
+def bibent_to_fmt(bibent, fmt):
     citation_key = bibent['ID']
     title = bibent['title'].strip("{}")
     authors = bibent['author']
@@ -284,22 +290,47 @@ def bibent_to_markdown(bibent):
     authors = authors.replace("{", "")
     authors = authors.replace("}", "")
     authros = authors.replace('\n', ' ').replace('\r', '')  # sometimes author names are given on separate lines, which breaks the Markdown formatting
-    citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
-    to_markdown = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
+    citation_key = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
+
+    if fmt == "markdown":
+        to_fmt = "[^" + citation_key + "]: **" + title + "**, by " + authors
+    elif fmt == "text":
+        to_fmt = "[" + citation_key + "] " + title + "; by " + authors
+    else:
+        print_error("Unknown format: " + fmt)
+        raise "Internal error"
 
     venue = bibent_get_venue(bibent)
     if venue != None:
-        to_markdown = to_markdown + ", *in " + venue + "*"
+        if fmt == "markdown":
+            to_fmt = to_fmt + ", *in " + venue + "*"
+        elif fmt == "text":
+            to_fmt = to_fmt + "; in " + venue
+        else:
+            print_error("Unknown format: " + fmt)
+            raise "Internal error"
 
     if year != None:
-        to_markdown = to_markdown +  ", " + year
+        if fmt == "markdown":
+            to_fmt = to_fmt +  ", " + year
+        elif fmt == "text":
+            to_fmt = to_fmt +  "; " + year
+        else:
+            print_error("Unknown format: " + fmt)
+            raise "Internal error"
 
     url = bibent_get_url(bibent)
     if url is not None:
-        mdurl = "[[URL]](" + url + ")"
-        to_markdown = to_markdown + ", " + mdurl
+        if fmt == "markdown":
+            mdurl = "[[URL]](" + url + ")"
+            to_fmt = to_fmt + ", " + mdurl
+        elif fmt == "text":
+            to_fmt = to_fmt +  "; " + url
+        else:
+            print_error("Unknown format: " + fmt)
+            raise "Internal error"
 
-    return to_markdown
+    return to_fmt
 
 def bibpath_rename_ck(destbibfile, citation_key):
     bibent = bibent_from_file(destbibfile)
