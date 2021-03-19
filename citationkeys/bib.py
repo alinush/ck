@@ -283,6 +283,7 @@ def bibent_to_markdown(bibent):
         year = bibent['year']
     authors = authors.replace("{", "")
     authors = authors.replace("}", "")
+    authros = authors.replace('\n', ' ').replace('\r', '')  # sometimes author names are given on separate lines, which breaks the Markdown formatting
     citation_key_noplus = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
     to_markdown = "[^" + citation_key_noplus + "]: **" + title + "**, by " + authors
 
