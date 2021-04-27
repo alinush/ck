@@ -959,7 +959,13 @@ def ck_search_cmd(ctx, query, case_sensitive):
     if len(cks) > 0:
         include_url = True
         include_venue = True
-        print_ck_tuples(cks_to_tuples(ck_bib_dir, cks, verbosity), ck_tags, include_url, include_venue)
+
+        ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
+
+        # NOTE: Currently sorts alphabetically by CK
+        sorted_cks = sorted(ck_tuples, key=lambda item: item[0])
+
+        print_ck_tuples(sorted_cks, ck_tags, include_url, include_venue)
     else:
         print("No matches!")
 
@@ -1079,7 +1085,7 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, recursive, short, is_tags, url):
 
         # NOTE: Currently sorts alphabetically by CK
         sorted_cks = sorted(ck_tuples, key=lambda item: item[0])
-    
+
         print_ck_tuples(sorted_cks, ck_tags, url)
 
         click.echo(str(len(cks)) + " PDFs listed")
