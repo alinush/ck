@@ -335,12 +335,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     #            Either way, we are ready to check the paper does not exist and, if so, save the files.
     #
 
+    # TODO(Alin): check the URL more carefully (perhaps modify handle_url to tell you which website was handled)
     citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
     bibtex = None # make sure we never use this again
 
-    # TODO(Alin): check the URL more carefully (perhaps modify handle_url to tell you which website was handled)
     if "eprint.iacr.org" in url:
         citation_key = citation_key + "e"
+        bibent['ID'] = bibent['ID'] + "e"
 
     click.echo("Will use citation key: ", nl=False)
     click.secho(citation_key, fg="blue")
