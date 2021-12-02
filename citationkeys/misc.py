@@ -46,10 +46,11 @@ def ck_to_pdf(ck_bib_dir, ck):
 def ck_to_bib(ck_bib_dir, ck):
     return os.path.join(ck_bib_dir, ck + ".bib")
 
-# for now, a CK 'existing' means it has a PDF file in the BibDir
+# for now, a CK 'existing' means it has either a .bib or PDF file in the BibDir
 def ck_exists(ck_bib_dir, ck):
-    path = ck_to_pdf(ck_bib_dir, ck)
-    return os.path.exists(path)
+    pdfpath = ck_to_pdf(ck_bib_dir, ck)
+    bibpath = ck_to_bib(ck_bib_dir, ck)
+    return os.path.exists(pdfpath) or os.path.exists(bibpath)
 
 def is_cwd_in_tagdir(ck_tag_dir):
     cwd = os.path.normpath(os.getcwd())
