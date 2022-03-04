@@ -112,22 +112,28 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
 
     return ck_tuples
 
-def print_ck_tuples(cks, tags, include_url=False, include_venue=False):
+def print_ck_tuples(cks, tags, include_url=False, include_venue=True, include_ck=True, include_dateadded=True, include_tags=True):
     for (ck, author, title, year, date, url, venue) in cks:
-        click.secho(ck, fg='blue', nl=False)
-        click.echo(", ", nl=False)
+        if include_ck:
+            click.secho(ck, fg='blue', nl=False)
+            click.echo(", ", nl=False)
+
         click.secho(title, fg='green', nl=False)
+
         click.echo(", ", nl=False)
         click.secho(year,fg='red', bold=True, nl=False)
+
         click.echo(", ", nl=False)
         click.echo(author, nl=False)
-        if date:
+
+        if date and include_dateadded:
             date = datetime.strftime(datetime.strptime(date, "%Y-%m-%d %H:%M:%S"), "%B %-d, %Y")
-            click.echo(', (', nl=False)
+            click.echo(", ", nl=False)
+            click.echo('(', nl=False)
             click.secho(date, fg='magenta', nl=False)
             click.echo(')', nl=False)
 
-        if ck in tags:
+        if include_tags and ck in tags:
             click.echo(', ', nl=False)
             click.echo(style_tags(tags[ck]), nl=False)
 
