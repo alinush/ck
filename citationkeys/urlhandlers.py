@@ -295,6 +295,8 @@ def springerlink_handler(opener, soup, parsed_url, parser, user_agent, verbosity
 
     if pdf_downl:
         elem = soup.select_one("#cobranding-and-download-availability-text > div > a")
+        if elem is None:
+            elem = soup.select_one("#cobranding-and-download-availability-text > div > p > a")
         if verbosity > 1:
             print("HTML for PDF:", elem)
 
