@@ -110,9 +110,8 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     # page at all since the .pdf and .bib file links are derived directly from
     # the URL itself.
     no_index_html = set()
-    no_index_html.add("eprint.iacr.org")
+    #no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
 
-    # e.g., We don't need to download the index.html page for IACR ePrint
     if domain not in no_index_html:
         index_html = get_url(opener, url, verbosity, user_agent)
         soup = BeautifulSoup(index_html, parser)
@@ -213,12 +212,17 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
         pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
 
     if bib_downl:
-        biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + path
-        print("Downloading BibTeX from", biburl)
-        html = get_url(opener, biburl, verbosity, user_agent)
-        bibsoup = BeautifulSoup(html, parser)
-        bibtex = bibsoup.find('pre').text.strip()
+        elem = soup.find("pre", {"id": "bibtex"})
+        bibtex = elem.text.strip()
         bibtex = bibtex.encode('utf-8')
+
+        # NOTE(Alin): Old code for old version before May 2022
+        # biburl = parsed_url.scheme + '://' + parsed_url.netloc + "/eprint-bin/cite.pl?entry=" + path
+        # print("Downloading BibTeX from", biburl)
+        # html = get_url(opener, biburl, verbosity, user_agent)
+        # bibsoup = BeautifulSoup(html, parser)
+        # bibtex = bibsoup.find('pre').text.strip()
+        # bibtex = bibtex.encode('utf-8')
 
     return bibtex, pdf_data
 
