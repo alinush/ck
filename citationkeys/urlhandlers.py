@@ -112,12 +112,20 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     no_index_html = set()
     #no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
 
-    if domain not in no_index_html:
-        index_html = get_url(opener, url, verbosity, user_agent)
-        soup = BeautifulSoup(index_html, parser)
-
     if domain in handlers:
         handler = handlers[domain]
+
+        # For IACR eprint, we handle links that end with .pdf as if they were normal
+        if url.endswith(".pdf"):
+            url = url[:-4]
+            parsed_url = urlparse(url)
+
+        # For all domains, we typically pre-parse the page at 'url' and pass in the 
+        # parser object to the URL handler below
+        if domain not in no_index_html:
+            index_html = get_url(opener, url, verbosity, user_agent)
+            soup = BeautifulSoup(index_html, parser)
+
         # NOTE: * expands the tuple returned by handler() into individual arguments
         return True, *handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl)
     else:
@@ -203,12 +211,7 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
     bibtex   = None
 
     if pdf_downl:
-        if path.endswith(".pdf"):
-            path = path[:-4]
-            pdfurl = urlunparse(parsed_url)
-        else:
-            pdfurl = urlunparse(parsed_url) + ".pdf"
-
+        pdfurl = urlunparse(parsed_url) + ".pdf"
         pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
 
     if bib_downl:
