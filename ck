@@ -1029,10 +1029,15 @@ def ck_cleanbib_cmd(ctx):
     help='Recursively lists all CKs in the specified location'
 )
 @click.option(
-    '-s', '--short',
+    '-c', '--ck-only',
     is_flag=True,
     default=False,
     help='Citation keys only'
+)
+@click.option(
+    '-s', '--sort',
+    default='date-added',
+    help='Sorts either by CK, title, author, year, date-added, or venue'
 )
 @click.option(
     '-t', '--tags', 'is_tags',
@@ -1054,7 +1059,7 @@ def ck_cleanbib_cmd(ctx):
 # 1. Let the user navigate the TagDir via the command line by using 'ck l' and 'ck l <tag-or-subtag>'.
 # 2. List papers with specific tags via -t/--tags (which could be delegated to 'ck search' or some other command).
 # 3. List all papers in the library (when doing 'ck l' outside the TagDir)
-def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, short, is_tags, url):
+def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, ck_only, sort, is_tags, url):
     """Lists all citation keys in the specified subdirectories of TagDir or if -t/--tags is passed, all citation keys with the specified tags.
 
     TAG_NAMES_OR_SUBDIRS is by default assumed to be a list of subdirectories of TagDir, but if -t/--tags is passed, then it is interpreted as a list of tags."""
@@ -1089,14 +1094,31 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, short, is_tags,
             else:
                 print_warning("Directory '" + subdir + "' does not exist")
 
-    if short:
+    if ck_only:
         if len(cks) > 0:
             click.echo(' '.join(sorted(cks)))
     else:
+        # TODO: changing the ordering of the columns in a tuple will mess up sorting below
         ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
 
-        # NOTE: Currently sorts alphabetically by CK
-        sorted_cks = sorted(ck_tuples, key=lambda item: item[0])
+        if sort.lower() == "ck":
+            sort_idx = 0
+        elif sort.lower() == "author":
+            sort_idx = 1
+        elif sort.lower() == "title":
+            sort_idx = 2
+        elif sort.lower() == "year":
+            sort_idx = 3
+        elif sort.lower() == "date-added":
+            sort_idx = 4
+        elif sort.lower() == "venue":
+            sort_idx = 6
+        else:
+            print_warning("Unknown sorting index ('" + sort + "'), defaulting to 'date-added'")
+            sort = 'date-added'
+            sort_idx = 4 # date-added
+
+        sorted_cks = sorted(ck_tuples, key=lambda item: item[sort_idx])
 
         include_ck=False if anonymize else True
         include_dateadded=False if anonymize else True
@@ -1104,7 +1126,7 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, short, is_tags,
 
         print_ck_tuples(sorted_cks, ck_tags, url, include_ck=include_ck, include_dateadded=include_dateadded, include_tags=include_tags)
 
-        click.echo(str(len(cks)) + " PDFs listed")
+        click.echo(str(len(cks)) + " PDFs listed (sorted by " + sort + ")")
 
 @ck.command('genbib')
 @click.argument('output-file', required=True, type=click.File('a'))

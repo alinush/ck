@@ -163,6 +163,12 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
             print("ACM DL paper bib URL:", biburl)
         bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
 
+        # TODO: There is a <form action="/action/exportCiteProcCitation"> element with <input name="content"> which seems to have the BibTeX, but we need to send it a POST request, I think
+        # TODO: write a post_url() function that does this and then parse the response?
+
+        #elem = soup.find('form', attrs={"action": "/action/exportCiteProcCitation"})
+        #print(elem)
+
         if verbosity > 1:
             # Assuming UTF8 encoding. Will pay for this later, rest assured.
             print("ACM DL paper BibTeX: ", bibtex.decode("utf-8"))
