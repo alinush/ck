@@ -1132,19 +1132,28 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, ck_only, sort, 
 @click.argument('output-file', required=True, type=click.File('a'))
 @click.argument('tags', required=False, nargs=-1, type=click.STRING)
 @click.option(
-    '-m', '--markdown',
-    is_flag=True,
+    '-b', '--bibtex', 'fmt', flag_value='bibtex',
+    default=True,
+    help='Outputs bibliography in BibTeX format'
+    )
+@click.option(
+    '-m', '--markdown', 'fmt', flag_value='markdown',
     default=False,
     help='Outputs bibliography in Markdown format'
+    )
+@click.option(
+    '-t', '--text', 'fmt', flag_value='text',
+    default=False,
+    help='Outputs bibliography in plain text format'
     )
 @click.option(
     '-r', '--recursive',
     is_flag=True,
     default=False,
     help='Includes CKs that are recursively-tagged too.'
-)
+    )
 @click.pass_context
-def ck_genbib_cmd(ctx, output_file, tags, markdown, recursive):
+def ck_genbib_cmd(ctx, output_file, tags, fmt, recursive):
     """Generates a bibliography file of papers tagged with the specified tags.
        If the specified bibliography file already exists, just appends to it.
        If no tags are given, generates a bibliography file of all papers in the BibDir."""
@@ -1170,10 +1179,16 @@ def ck_genbib_cmd(ctx, output_file, tags, markdown, recursive):
                 num_copied += 1
 
                 bibtex = file_to_string(bibfilepath)
-                if markdown:
-                    bibstr = bibent_to_markdown(bibtex_to_bibent(bibtex))
-                else:
+                bibent = bibtex_to_bibent(bibtex)
+                if fmt == "bibtex":
                     bibstr = bibtex
+                elif fmt == "markdown":
+                    bibstr = bibent_to_markdown(bibent)
+                elif fmt == "text":
+                    bibstr = bibent_to_text(bibent)
+                else:
+                    print_error("Unknown bibliography format: " + fmt)
+                    sys.exit(1)
                 
                 bibstr = bibstr.strip()
                 output_file.write(bibstr + '\n\n')
