@@ -217,7 +217,7 @@ def abort_citation_exists(ctx, destpdffile, citation_key):
 @click.pass_context
 def ck_addbib_cmd(ctx, url, citation_key):
     """Adds the paper's .bib file to the library, without a PDF file,
-       unless one already exists. Uses the specified citation key, if given.
+       unless one already exists. Uses the specified citation key, if given and not already used.
        Otherwise, uses the DefaultCk policy in the configuration file."""
 
     verbosity        = ctx.obj['verbosity']
@@ -238,7 +238,7 @@ def ck_addbib_cmd(ctx, url, citation_key):
             bibtex = bibtex.encode('utf-8')
 
             try:
-                citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+                citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, None, default_ck, verbosity)
                 break
             except:
                 print_error("Could not parse BibTeX! See stack trace below:")
