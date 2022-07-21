@@ -233,10 +233,12 @@ def bibtex_to_bibdb(bibtex):
 
 def bibtex_to_bibent(bibtex):
     """Returns a bibliography object from a BibTeX string'"""
-    return bibtex_to_bibdb(bibtex).entries[0]
+    bibdb = bibtex_to_bibdb(bibtex)
+    return bibdb.entries[0]
 
 def bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck_policy, verbosity):
-    bibent = defaultdict(lambda : '', bibtex_to_bibent(bibtex.decode()))
+    bibent = bibtex_to_bibent(bibtex.decode())
+    bibent = defaultdict(lambda : '', bibent)
 
     # If no citation key was given as argument, use the DefaultCk policy from the configuration file.
     # NOTE(Alin): Non-handled URLs always have a citation key, so we need not worry about them.

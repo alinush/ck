@@ -4,13 +4,14 @@
 from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
-from .tags import style_tags
+from .tags import style_tags, SimpleCompleter
 from .bib import bibent_get_url, bibent_get_venue, new_bibtex_parser
 
 # NOTE: Alphabetical order please
 import bibtexparser
 import click
 import os
+import readline
 import sys
 import traceback
 
@@ -40,10 +41,28 @@ def string_to_file(string, path):
     with open(path, 'w') as output:
         output.write(string)
 
+# Prompts the user for a citation key, autocompleting with the current ones (can be used to detect conflicts)
+def prompt_for_ck(ctx, prompt):
+    readline.set_completer(SimpleCompleter(list_cks(ctx.obj['BibDir'], True), ',').complete)
+
+    readline.parse_and_bind('tab: complete')
+
+    ck = ""
+    while len(ck.strip()) == 0:
+        ck = input(prompt)
+
+    return ck
+
 def ck_to_pdf(ck_bib_dir, ck):
+    if ck == None or len(ck) == 0:
+        raise "Cannot derive PDF file path from empty citation key"
+
     return os.path.join(ck_bib_dir, ck + ".pdf")
 
 def ck_to_bib(ck_bib_dir, ck):
+    if ck == None or len(ck) == 0:
+        raise "Cannot derive BibTeX file path from empty citation key"
+
     return os.path.join(ck_bib_dir, ck + ".bib")
 
 # for now, a CK 'existing' means it has either a .bib or PDF file in the BibDir
@@ -175,8 +194,14 @@ def style_ck(ck):
 def print_error(msg):
     click.secho("ERROR: " + msg, fg="red", err=True)
 
+def style_warning(msg):
+    return click.style(msg, fg="yellow")
+
 def print_warning(msg):
     click.secho("WARNING: " + msg, fg="yellow")
+
+def print_warning_no_nl(msg):
+    click.secho("WARNING: " + msg, nl=False, fg="yellow")
 
 def print_success(msg):
     click.secho(msg, fg="green")

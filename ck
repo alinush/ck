@@ -212,7 +212,7 @@ def abort_citation_exists(ctx, destpdffile, citation_key):
             ctx.invoke(ck_tag_cmd, citation_key=citation_key)
 
 @ck.command('addbib')
-@click.argument('url', required=True, type=click.STRING)
+@click.argument('url', required=False, type=click.STRING)
 @click.argument('citation_key', required=False, type=click.STRING)
 @click.pass_context
 def ck_addbib_cmd(ctx, url, citation_key):
@@ -226,37 +226,62 @@ def ck_addbib_cmd(ctx, url, citation_key):
     ck_bib_dir       = ctx.obj['BibDir']
     ck_tag_dir       = ctx.obj['TagDir']
 
-    # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
-    # websites from borking.
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    user_agent = UserAgent().random
+    # If no URL was provided, just let the user type in the BibTeX in the text editor.
+    if url == None:
+        bibtex = ""
+        while True:
+            bibtex = click.edit(bibtex, ctx.obj['TextEditor'])
+            if bibtex == None or len(bibtex.strip()) == 0:
+                print_error("You did not input any BibTex in the text editor. Exiting.")
+                sys.exit(1)
 
-    # Download .bib file only
-    is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+            bibtex = bibtex.encode('utf-8')
 
-    if not is_handled:
-        click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
-        bibtex = download_bib(opener, user_agent, url, verbosity)
+            try:
+                citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+                break
+            except:
+                print_error("Could not parse BibTeX! See stack trace below:")
+                print()
+                traceback.print_exc()
+                print()
 
-    if verbosity > 0:
-        print("Downloaded BibTeX: " + str(bibtex))
+                if input("Continue editing to fix the errors? [y/N]: ").lower() != "y":
+                    sys.exit(1)
+    else:
+        # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
+        # websites from borking.
+        cj = CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        user_agent = UserAgent().random
 
-    citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+        # Download .bib file only
+        is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+
+        if not is_handled:
+            click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
+            bibtex = download_bib(opener, user_agent, url, verbosity)
+
+        if verbosity > 0:
+            print("Downloaded BibTeX: " + str(bibtex))
+
+        citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+
+    # Write the .bib file
+    destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+    while os.path.exists(destbibfile):
+        prompt = style_warning("Citation key ") + style_ck(citation_key) + style_warning(" already exists, please enter a new one: ")
+
+        citation_key = prompt_for_ck(ctx, prompt)
+        destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+
     click.echo("Will use citation key: ", nl=False)
     click.secho(citation_key, fg="blue")
 
-    destbibfile = ck_to_bib(ck_bib_dir, citation_key)
-
-    # Write the .bib file
-    # (except for the case where it this is a non-handled URL and a .bib file exists)
-    if not os.path.exists(destbibfile):
-        # First, sets the 'ckdateadded' field in the .bib file
-        bibent_set_dateadded(bibent, None)
-        bibent_to_file(destbibfile, bibent)
-    else:
-        print_error("Citation key " + citation_key + " already exists")
-        sys.exit(1)
+    # Sets the 'ckdateadded' field in the .bib file
+    bibent['ID'] = citation_key
+    bibent_set_dateadded(bibent, None)
+    bibent_to_file(destbibfile, bibent)
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
