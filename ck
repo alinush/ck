@@ -940,7 +940,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
             os.path.join(ck_bib_dir, newfilename + ext))
 
     # update .bib file citation key
-    click.echo("Renaming CK in .bib file...")
+    click.echo("Renaming CK in BibTeX file...")
     bibpath_rename_ck(ck_to_bib(ck_bib_dir, new_citation_key), new_citation_key)
 
     # if the paper is tagged, update all symlinks in TagDir by un-tagging and re-tagging
