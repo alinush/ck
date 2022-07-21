@@ -265,7 +265,14 @@ def ck_addbib_cmd(ctx, url, citation_key):
         if verbosity > 0:
             print("Downloaded BibTeX: " + str(bibtex))
 
-        citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+        try:
+            citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+        except:
+            print_error("Could not parse BibTeX! See stack trace below:")
+            print()
+            traceback.print_exc()
+            print()
+            sys.exit(1)
 
     # Write the .bib file
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
