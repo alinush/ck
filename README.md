@@ -73,13 +73,20 @@ _A:_ Have each version as a different CK, since it might contain additional info
 TODOs
 -----
 
+### Bugs
+
+ - some springerlink URLs don't work because they have .ris citations only
+    + e.g., https://link.springer.com/article/10.1007/s10207-005-0071-2 
+
+### Features
+
  - `ck tag/untag/genbib/copypdfs` autocompletion of tags
  - figure out how to have a `setup.py` that installs this thing
     + add a `requirements.txt` too
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
- - might want separate `updatebib` and `updatepdf` commands, to support adding the PDF and .bib file from different locations. Then, `ck add` can just call both of them, with `overwrite=false`
+ - might want separate `addbib` and `addpdf` commands, to support adding the PDF and .bib file from different locations. Then, `ck add` can just call both of them, with `overwrite=false`
     - If called individually, they will leave the library in an inconsistent state, so the user should be warned (since either PDF or .bib file might be missing)
-    + URL handler should be split into a `download_pdf` and a `download_bib`, so we can call them separately in `updatebib/pdf`
+    + URL handler should be split into a `download_pdf` and a `download_bib`, so we can call them separately in `addbib/addpdf`
         + this is useful when PDFs are paywalled, but we still want the .bib
  - Cryptology ePrint updater: need it to update papers to their latest versions
     - `ck` should run this once a day
@@ -96,8 +103,6 @@ TODOs
             - nobib
             - md
             - any other files (e.g., ABC19.slides.pdf)
-        - add sort-by options
-            - need sort by most recently added (with date & time displayed)
         - list all conferences across papers
         - when invoked without recursion, tell user what other subtags are there in the current subdir?
     - `open` subcommand
