@@ -80,14 +80,24 @@ TODOs
 
 ### Features
 
+#### Add PDF and BibTeX separately
+
+Might want separate `addbib` and `addpdf` commands, to support adding the PDF and .bib file from different locations. Then, `ck add` can just call both of them, with `overwrite=false`
+
+ - If called individually, they will leave the library in an inconsistent state, so the user should be warned (since either PDF or .bib file might be missing)
+ + URL handler should be split into a `download_pdf` and a `download_bib`, so we can call them separately in `addbib/addpdf`
+     + this is useful when PDFs are paywalled, but we still want the .bib
+
+Add support for adding PDF from local file too.
+
+Add support for downloading a webpage as a PDF and adding it.
+
+#### Uncategorized
+
  - `ck tag/untag/genbib/copypdfs` autocompletion of tags
  - figure out how to have a `setup.py` that installs this thing
     + add a `requirements.txt` too
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
- - might want separate `addbib` and `addpdf` commands, to support adding the PDF and .bib file from different locations. Then, `ck add` can just call both of them, with `overwrite=false`
-    - If called individually, they will leave the library in an inconsistent state, so the user should be warned (since either PDF or .bib file might be missing)
-    + URL handler should be split into a `download_pdf` and a `download_bib`, so we can call them separately in `addbib/addpdf`
-        + this is useful when PDFs are paywalled, but we still want the .bib
  - Cryptology ePrint updater: need it to update papers to their latest versions
     - `ck` should run this once a day
     + should move old paper to `CK<year>.<ckdateadded>.pdf` (make sure no naming conflicts)
