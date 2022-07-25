@@ -14,18 +14,22 @@ Features:
 Setup
 -----
 
-    pip install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
+    pip3 install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
 
 Fill in `ck.config` and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
 
 For auto tag-suggesting, you can install pdfgrep (optional):
-    
+
     apt install pdfgrep # Ubuntu/Debian
-    brew install pdfgrep # mac
+    brew install pdfgrep # Mac OS
 
 To install bash auto-completion, run
 
     source bash_completion.d/ck
+
+Other dependencies:
+
+    brew install pango libffi # Mac OS
 
 Other useful, related repositories
 ----------------------------------

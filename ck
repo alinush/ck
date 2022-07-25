@@ -24,6 +24,7 @@ import click
 import configparser
 import glob
 import os
+import pdfkit
 import pyperclip
 import random
 import re
@@ -289,6 +290,23 @@ def ck_addbib_cmd(ctx, url, citation_key):
     bibent['ID'] = citation_key
     bibent_set_dateadded(bibent, None)
     bibent_to_file(destbibfile, bibent)
+
+@ck.command('addpage')
+@click.argument('url', required=True, type=click.STRING)
+@click.argument('citation_key', required=False, type=click.STRING)
+@click.pass_context
+def ck_addbib_cmd(ctx, url, citation_key):
+    """Adds the specified webpage to the library, by converting it to a PDF.
+       Uses the specified citation key, if given and not already used.
+       Otherwise, uses the DefaultCk policy in the configuration file."""
+
+    verbosity        = ctx.obj['verbosity']
+    handlers         = ctx.obj['handlers']
+    default_ck       = ctx.obj['DefaultCk']
+    ck_bib_dir       = ctx.obj['BibDir']
+    ck_tag_dir       = ctx.obj['TagDir']
+
+    pdfkit.from_url(url, "/tmp/lol.pdf")
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
