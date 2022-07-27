@@ -1,39 +1,20 @@
 #!/usr/bin/env python3
 
-# NOTE: Alphabetical order please
-from os import abort, path
-from bibtexparser.bwriter import BibTexWriter
-from bs4 import BeautifulSoup
-from citationkeys.bib  import *
-from citationkeys.misc import *
-from citationkeys.tags import *
-from citationkeys.urlhandlers import *
-from datetime import datetime
-from fake_useragent import UserAgent
-from http.cookiejar import CookieJar
-from pathlib import Path
-from pprint import pprint
-from urllib.parse import urlparse, urlunparse
+import glob
+import shutil
+import subprocess
 from urllib.request import Request
 
-# NOTE: Alphabetical order please
-import appdirs
-import bibtexparser
-import bs4
-import click
-import configparser
-import glob
-import os
 import pdfkit
-import pyperclip
-import random
-import re
-import subprocess
-import shutil
-import string
-import sys
-import traceback
-import urllib
+
+from bibtexparser.bwriter import BibTexWriter
+from weasyprint import HTML
+
+from citationkeys.bib import *
+from citationkeys.tags import *
+from citationkeys.urlhandlers import *
+from citationkeys.print import *
+
 
 class AliasedGroup(click.Group):
     def get_command(self, ctx, cmd_name):
@@ -51,7 +32,37 @@ class AliasedGroup(click.Group):
 
         ctx.fail('Too many matches: %s' % ', '.join(sorted(matches)))
 
-#@click.group(invoke_without_command=True)
+
+def prompt_for_bibtex(ctx, initial_bibtex):
+    bibtex = initial_bibtex
+
+    # Continue asking the user for bibtex until they enter valid bibtex
+    while True:
+        bibtex = click.edit(bibtex, ctx.obj['TextEditor'])
+        if bibtex == None or len(bibtex.strip()) == 0:
+            print_error("You did not input any BibTex in the text editor. Exiting.")
+            sys.exit(1)
+
+        bibtex = bibtex.encode('utf-8')
+
+        try:
+            bibent = bibtex_to_bibent(bibtex) #, None, ctx.obj['DefaultCk'], ctx.obj['verbosity'])
+
+            # If the parsing succeeded, break out of the loop and return
+            break
+        except:
+            print_error("Could not parse BibTeX! See stack trace below:")
+            print()
+            traceback.print_exc()
+            print()
+
+            if input("Continue editing to fix the errors? [y/N]: ").lower() != "y":
+                sys.exit(1)
+
+    return bibtex, bibent
+
+
+# @click.group(invoke_without_command=True)
 @click.group(cls=AliasedGroup)
 @click.option(
     '-c', '--config-file',
@@ -141,6 +152,7 @@ def ck(ctx, config_file, verbose):
     # TODO(Alin): figure out how to call this *after* (not before) the subcommand is invoked, so the user can actually see its output
     #ck_check(ctx.obj['BibDir'], ctx.obj['TagDir'], verbose)
 
+
 @ck.command('check')
 @click.pass_context
 def ck_check_cmd(ctx):
@@ -152,6 +164,7 @@ def ck_check_cmd(ctx):
     ck_tag_dir = ctx.obj['TagDir']
 
     ck_check(ck_bib_dir, ck_tag_dir, verbosity)
+
 
 def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # find PDFs without bib files (and viceversa)
@@ -199,8 +212,9 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # TODO(Alin): make sure symlinks are not broken in TagDir
     # TODO(Alin): make sure all .bib files have the right CK and have ckdateadded
 
-def abort_citation_exists(ctx, destpdffile, citation_key):
-    print_error(destpdffile + " already exists. Pick a different citation key.")
+
+def error_citation_exists(ctx, citation_key):
+    click.secho(style_error("Citation key ") + style_ck(citation_key) + style_error(" already exists. Pick a different one."), err=True)
 
     askToTagConflict = ctx.obj['TagAfterCkAddConflict']
 
@@ -211,6 +225,7 @@ def abort_citation_exists(ctx, destpdffile, citation_key):
             print()
             # prompt user to tag paper
             ctx.invoke(ck_tag_cmd, citation_key=citation_key)
+
 
 @ck.command('addbib')
 @click.argument('url', required=False, type=click.STRING)
@@ -229,26 +244,8 @@ def ck_addbib_cmd(ctx, url, citation_key):
 
     # If no URL was provided, just let the user type in the BibTeX in the text editor.
     if url == None:
-        bibtex = ""
-        while True:
-            bibtex = click.edit(bibtex, ctx.obj['TextEditor'])
-            if bibtex == None or len(bibtex.strip()) == 0:
-                print_error("You did not input any BibTex in the text editor. Exiting.")
-                sys.exit(1)
-
-            bibtex = bibtex.encode('utf-8')
-
-            try:
-                citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, None, default_ck, verbosity)
-                break
-            except:
-                print_error("Could not parse BibTeX! See stack trace below:")
-                print()
-                traceback.print_exc()
-                print()
-
-                if input("Continue editing to fix the errors? [y/N]: ").lower() != "y":
-                    sys.exit(1)
+        bibtex, _ = prompt_for_bibtex(ctx, "")
+        citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, None, default_ck, verbosity)
     else:
         # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
         # websites from borking.
@@ -291,22 +288,70 @@ def ck_addbib_cmd(ctx, url, citation_key):
     bibent_set_dateadded(bibent, None)
     bibent_to_file(destbibfile, bibent)
 
+
 @ck.command('addpage')
 @click.argument('url', required=True, type=click.STRING)
 @click.argument('citation_key', required=False, type=click.STRING)
+@click.option(
+    '-e', '--engine',
+    default="weasyprint",
+    help="The HTML-to-PDF engine, which can be either 'pdfkit' or 'weasyprint'",
+    )
+@click.option(
+    '-n', '--no-tag-prompt',
+    is_flag=True,
+    default=False,
+    help='Does not prompt the user to tag the paper.'
+    )
 @click.pass_context
-def ck_addbib_cmd(ctx, url, citation_key):
+def ck_addpage_cmd(ctx, url, citation_key, engine, no_tag_prompt):
     """Adds the specified webpage to the library, by converting it to a PDF.
        Uses the specified citation key, if given and not already used.
        Otherwise, uses the DefaultCk policy in the configuration file."""
 
     verbosity        = ctx.obj['verbosity']
-    handlers         = ctx.obj['handlers']
     default_ck       = ctx.obj['DefaultCk']
     ck_bib_dir       = ctx.obj['BibDir']
     ck_tag_dir       = ctx.obj['TagDir']
 
-    pdfkit.from_url(url, "/tmp/lol.pdf")
+    # prompt for .bib with some information like @misc and add URL pre-completed
+    original_citation_key = citation_key
+    bibent = bibent_from_url(citation_key if citation_key is not None else "WillBeDerivedAutomatically", url)
+
+    initial_bibtex = bibent_to_bibtex(bibent)
+    _, bibent = prompt_for_bibtex(ctx, initial_bibtex)
+
+    # Use default CK if no CK is was given
+    if citation_key is None:
+        citation_key = bibent_to_default_ck(bibent, default_ck, verbosity)
+        bibent['ID'] = citation_key
+    else:
+        bibent['ID'] = citation_key
+
+    # make sure derived or user-chose CK is not used
+    if ck_exists(ck_bib_dir, citation_key):
+        error_citation_exists(ctx, citation_key)
+        sys.exit(1)
+
+    # derive .bib and .pdf paths
+    destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
+    destbibfile = ck_to_bib(ck_bib_dir, citation_key)
+
+    # download HTML as PDF
+    if engine == "weasyprint":
+        HTML(url).write_pdf(destpdffile)    # defaults to using 'media' print
+    elif engine == "pdfkit":
+        options = {
+          "print-media-type": None  # forces 'media' print
+        }
+        pdfkit.from_url(url, destpdffile, options)
+    else:
+        print_error("Unsupported HTML-to-PDF engine: " + engine)
+        sys.exit(1)
+
+    # write .bib file
+    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt)
+
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
@@ -349,31 +394,19 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
             print_error("Please supply the citation key too, since it cannot be determined from PDF only.")
             sys.exit(1)
 
-        click.echo("Trying to download as PDF...")
-        pdf_data = download_pdf(opener, user_agent, url, verbosity)
+        try:
+            click.echo("Trying to download as PDF...")
+            pdf_data = download_pdf(opener, user_agent, url, verbosity)
+        except:
+            print_error("Specified URL is probably not a PDF URL.")
+            sys.exit(1)
 
         # If there's no .bib file for the user's citation key, let them edit one manually.
         bibpath_tmp = ck_to_bib(ck_bib_dir, citation_key)
         if not os.path.exists(bibpath_tmp):
-            bibent_tmp = bibent_new(citation_key, "misc")
-
-            # TODO(Alex): Try to pre-fill information here from PDF metadata (or PDF OCR?)
-            bibent_tmp['howpublished']   = '\\url{' + url + '}'
-            bibent_tmp['author']         = ''
-            bibent_tmp['year']           = ''
-            bibent_tmp['title']          = ''
-
-            bibtex = bibent_to_bibtex(bibent_tmp)
-
-            # Launch external editor and return the edited .bib file data
-            bibtex_old = bibtex
-            bibtex = click.edit(bibtex_old, ctx.obj['TextEditor']).encode('utf-8')
-
-            # NOTE(Alin): Could simply not add a .bib file when the user fails to add the info,
-            # but then 'ck add' would leave the library in an inconsistent state. So we abort.
-            if bibtex_old == bibtex:
-                print_error("You must add author(s), year and title to the .bib file.")
-                sys.exit(1)
+            bibent = bibent_from_url(citation_key, url)
+            initial_bibtex = bibent_to_bibtex(bibent)
+            bibtex, _ = prompt_for_bibtex(ctx, initial_bibtex)
         else:
             # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
             bibtex = file_to_bytes(bibpath_tmp)
@@ -389,6 +422,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
     bibtex = None # make sure we never use this again
 
+    # TODO: Ugh, this should be handled based on the CK policy, no? Also, what if user gives own CK?
     if "eprint.iacr.org" in url:
         citation_key = citation_key + "e"
         bibent['ID'] = bibent['ID'] + "e"
@@ -400,10 +434,10 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
     
-    # Make sure we've never added this paper before! (Otherwise, user will be surprised when
-    # they overwrite their previous papers.)
+    # Make sure we've never added this paper's PDF before! Note that its bib file might've been added with `addbib`
+    # (Otherwise, user will be surprised when they overwrite their previous papers.)
     if os.path.exists(destpdffile):
-        abort_citation_exists(ctx, destpdffile, citation_key)
+        error_citation_exists(ctx, citation_key)
         sys.exit(1)
 
     # One caveat:
@@ -414,15 +448,18 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
     # We should simplify it by adding 'ck updatepdf' and 'ck updatebib' as commands used to update the .bib and .pdf files explicitly.
     # Then, 'ck add' should always check that neither a PDF nor a .bib file exists.
     if is_handled and os.path.exists(destbibfile):
-        abort_citation_exists(ctx, destbibfile, citation_key)
+        error_citation_exists(ctx, citation_key)
         sys.exit(1)
     
     # Write the PDF file
     with open(destpdffile, 'wb') as fout:
         fout.write(pdf_data)
 
+    # Will not write the .bib file when this is a non-handled URL and a .bib file exists
+    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt)
+
+def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt):
     # Write the .bib file
-    # (except for the case where it this is a non-handled URL and a .bib file exists)
     if not os.path.exists(destbibfile):
         # First, sets the 'ckdateadded' field in the .bib file
         bibent_set_dateadded(bibent, None)

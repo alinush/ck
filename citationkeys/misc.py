@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 
-# NOTE: Alphabetical order please
-from collections import defaultdict
-from datetime import datetime
-from pprint import pprint
-from .tags import style_tags, SimpleCompleter
-from .bib import bibent_get_url, bibent_get_venue, new_bibtex_parser
-
-# NOTE: Alphabetical order please
-import bibtexparser
-import click
 import os
 import readline
 import sys
 import traceback
+from collections import defaultdict
+from datetime import datetime
+
+import bibtexparser
+import click
+
+from .bib import bibent_get_url, bibent_get_venue, new_bibtex_parser
+from .tags import style_tags, SimpleCompleter
+from .print import print_error
 
 def get_terminal_width():
     rows, columns = os.popen('stty size', 'r').read().split()
@@ -187,21 +186,3 @@ def list_cks(some_dir, recursive):
                 cks.add(ck)
 
     return sorted(cks)
-
-def style_ck(ck):
-    return click.style(ck, fg="blue")
-
-def print_error(msg):
-    click.secho("ERROR: " + msg, fg="red", err=True)
-
-def style_warning(msg):
-    return click.style(msg, fg="yellow")
-
-def print_warning(msg):
-    click.secho("WARNING: " + msg, fg="yellow")
-
-def print_warning_no_nl(msg):
-    click.secho("WARNING: " + msg, nl=False, fg="yellow")
-
-def print_success(msg):
-    click.secho(msg, fg="green")

@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
-# NOTE: Alphabetical order please
-from bibtexparser.latexenc import latex_to_unicode #, string_to_latex, protect_uppercase
-from bibtexparser.customization import homogenize_latex_encoding, convert_to_unicode, page_double_hyphen
-from collections import defaultdict
-from datetime import datetime
-from pprint import pprint
-from .tags import style_tags
-
-# NOTE: Alphabetical order please
-import bibtexparser
-import click
-import os
 import re
 import string
 import sys
 import traceback
 import unicodedata
+from collections import defaultdict
+from datetime import datetime
+
+import bibtexparser
+import click
+from bibtexparser.customization import page_double_hyphen
+from bibtexparser.latexenc import latex_to_unicode  # , string_to_latex, protect_uppercase
+
+from .print import print_error
+
 
 # WARNING(Alin): Please abide by the naming convention:
 #  - We refer to a bibtexparser.bibdatabase.BibDatabase object as bibdb
@@ -72,6 +70,17 @@ def new_bibtex_parser():
     parser.customization = customizations
 
     return parser
+
+def bibent_from_url(citation_key, url):
+    bibent = bibent_new(citation_key, "misc")
+
+    # TODO(Alex): Try to pre-fill information here from PDF metadata (or PDF OCR?)
+    bibent['howpublished']   = '\\url{' + url + '}'
+    bibent['author']         = ''
+    bibent['year']           = ''
+    bibent['title']          = ''
+
+    return bibent
 
 def bibent_canonicalize(ck, bibent, verbosity):
     updated = False
@@ -236,6 +245,28 @@ def bibtex_to_bibent(bibtex):
     bibdb = bibtex_to_bibdb(bibtex)
     return bibdb.entries[0]
 
+
+def bibent_to_default_ck(bibent, default_ck_policy, verbosity):
+    # We use the DefaultCk policy from the configuration file to determine the citation key, if none was given
+    if default_ck_policy == "KeepBibtex":
+        citation_key = bibent['ID']
+    elif default_ck_policy == "FirstAuthorYearTitle":
+        citation_key = bibent_get_first_author_year_title_ck(bibent)
+    elif default_ck_policy == "InitialsShortYear":
+        citation_key = bibent_get_author_initials_ck(bibent, verbosity)
+        citation_key += bibent['year'][-2:]
+    elif default_ck_policy == "InitialsFullYear":
+        citation_key = bibent_get_author_initials_ck(bibent, verbosity)
+        citation_key += bibent['year']
+    else:
+        print_error("Unknown default citation key policy in configuration file: " + default_ck_policy)
+        sys.exit(1)
+
+    # Something went wrong if the citation key is empty, so exit.
+    assert len(citation_key) > 0
+
+    return citation_key
+
 def bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck_policy, verbosity):
     bibent = bibtex_to_bibent(bibtex.decode())
     bibent = defaultdict(lambda : '', bibent)
@@ -243,23 +274,7 @@ def bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck_policy, verbosity)
     # If no citation key was given as argument, use the DefaultCk policy from the configuration file.
     # NOTE(Alin): Non-handled URLs always have a citation key, so we need not worry about them.
     if not citation_key:
-        # We use the DefaultCk policy from the configuration file to determine the citation key, if none was given
-        if default_ck_policy == "KeepBibtex":
-            citation_key = bibent['ID']
-        elif default_ck_policy == "FirstAuthorYearTitle":
-            citation_key = bibent_get_first_author_year_title_ck(bibent)
-        elif default_ck_policy == "InitialsShortYear":
-            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
-            citation_key += bibent['year'][-2:]
-        elif default_ck_policy == "InitialsFullYear":
-            citation_key = bibent_get_author_initials_ck(bibent, verbosity)
-            citation_key += bibent['year']
-        else:
-            print_error("Unknown default citation key policy in configuration file: " + default_ck_policy)
-            sys.exit(1)
-
-        # Something went wrong if the citation key is empty, so exit.
-        assert len(citation_key) > 0
+        citation_key = bibent_to_default_ck(bibent, default_ck_policy, verbosity)
 
     # Set the citation key in the BibTeX object
     bibent['ID'] = citation_key
