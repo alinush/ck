@@ -14,7 +14,7 @@ Features:
 Setup
 -----
 
-    pip3 install click pyperclip beautifulsoup4 appdirs fake-useragent bibtexparser lxml
+    ./install-deps.sh
 
 Fill in `ck.config` and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
 

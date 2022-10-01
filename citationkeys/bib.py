@@ -150,6 +150,9 @@ def bibent_get_venue(bibent):
     else:
         venue = None
 
+    if venue is not None:
+        venue = venue.replace('\n', ' ')
+
     return venue
 
 # This takes a single 'bibtex[i]' entry (not a vector 'bibtex') as input
@@ -170,7 +173,10 @@ def bibent_get_url(bibent):
         m = re.search("\\\\url{(.*)}", bibent[urlbibkey])
         url = m.group(1)
 
-    return url
+    if url is not None:
+        return url.strip().strip('\n').strip('\r').strip('\t')
+    else:
+        return None
 
 # TODO(Alex): Let's use last names!
 def bibent_get_first_author_year_title_ck(bibent):
@@ -296,7 +302,7 @@ def bibent_to_text(bibent):
 
 def bibent_to_fmt(bibent, fmt):
     citation_key = bibent['ID']
-    title = bibent['title'].strip("{}")
+    title = bibent['title'].strip("{}").replace("\n", " ")
     authors = bibent['author']
     # Convert letters accented via LaTeX (e.g., {\'{e}}) to Unicode, so they display in Markdown
     authors = latex_to_unicode(authors)
