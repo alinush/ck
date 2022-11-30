@@ -25,6 +25,7 @@ import sys
 import tempfile
 import urllib
 
+
 def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extra_headers={}):
     # TODO(Alin): handle 403 error and display HTML returned
     if verbosity > 0:
@@ -38,20 +39,21 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
         req = Request(url, headers=extra_headers)
         response = opener.open(req)
         content_type = response.getheader("Content-Type")
-        #click.echo("Content-Type: " + str(content_type))
+        # click.echo("Content-Type: " + str(content_type))
         # throw if bad content type
         found = False
         if restrict_content_type is not None:
             # we allow user to either pass a string, or a list of strings for this
             if not isinstance(restrict_content_type, list):
-                restrict_content_type = [ restrict_content_type ]
+                restrict_content_type = [restrict_content_type]
 
             for r in restrict_content_type:
                 if content_type.startswith(r):
                     found = True
 
             if not found:
-                raise RuntimeError("Expected this to be URL to " + str(restrict_content_type) + " but got '" + content_type + "' Content-Type")
+                raise RuntimeError("Expected this to be URL to " + str(
+                    restrict_content_type) + " but got '" + content_type + "' Content-Type")
     except urllib.error.HTTPError as err:
         print("HTTP Error Code: ", err.code)
         print("HTTP Error Reason: ", err.reason)
@@ -73,11 +75,13 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
 
     return html
 
+
 def download_bib(opener, user_agent, biburl, verbosity):
     if biburl is not None:
         bib_data = get_url(opener, biburl, verbosity, user_agent)
         return bib_data
     return None
+
 
 def download_pdf(opener, user_agent, pdfurl, verbosity):
     if pdfurl is not None:
@@ -85,10 +89,12 @@ def download_pdf(opener, user_agent, pdfurl, verbosity):
         return pdf_data
     return None
 
+
 def download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity):
     return \
         download_bib(opener, user_agent, biburl, verbosity), \
         download_pdf(opener, user_agent, pdfurl, verbosity)
+
 
 # Call the right handler for the specified URL and returns a tuple
 # <is_url_handled, bib_data, pdf_data>, where:
@@ -110,7 +116,7 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     # page at all since the .pdf and .bib file links are derived directly from
     # the URL itself.
     no_index_html = set()
-    #no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
+    # no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
 
     if domain in handlers:
         handler = handlers[domain]
@@ -131,14 +137,15 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     else:
         return False, None, None
 
+
 def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     path = parsed_url.path.split('/')[2:]
     if len(path) > 1:
         doi = path[-2] + '/' + path[-1]
     elif 'doid' in parsed_url.query:
-        doi = '10.1145/' + parsed_url.query.split('=')[1] # 10.1145/doid
+        doi = '10.1145/' + parsed_url.query.split('=')[1]  # 10.1145/doid
     else:
-        assert(False)
+        assert (False)
 
     if verbosity > 0:
         print("ACM DL paper DOI:", doi)
@@ -166,8 +173,8 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
         # TODO: There is a <form action="/action/exportCiteProcCitation"> element with <input name="content"> which seems to have the BibTeX, but we need to send it a POST request, I think
         # TODO: write a post_url() function that does this and then parse the response?
 
-        #elem = soup.find('form', attrs={"action": "/action/exportCiteProcCitation"})
-        #print(elem)
+        # elem = soup.find('form', attrs={"action": "/action/exportCiteProcCitation"})
+        # print(elem)
 
         if verbosity > 1:
             # Assuming UTF8 encoding. Will pay for this later, rest assured.
@@ -175,10 +182,11 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
 
     return bibtex, pdf_data
 
+
 #
 # DEPRECATED: Since DL ACM website changed in 2019/2020.
 #
-#def dlacm_handler_old(opener, soup, parsed_url, parser, user_agent, verbosity):
+# def dlacm_handler_old(opener, soup, parsed_url, parser, user_agent, verbosity):
 #    paper_id = parsed_url.query.split('=')[1]
 #
 #    # sometimes the URL might have ?doid=<parentid>.<id> rather than just ?doid=<id>
@@ -214,7 +222,7 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
 
     # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
     pdf_data = None
-    bibtex   = None
+    bibtex = None
 
     if pdf_downl:
         pdfurl = urlunparse(parsed_url) + ".pdf"
@@ -235,6 +243,7 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
 
     return bibtex, pdf_data
 
+
 def sciencedirect_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
 
@@ -254,7 +263,8 @@ def sciencedirect_handler(opener, soup, parsed_url, parser, user_agent, verbosit
             pdf_redirect_url = elem['content']
         # Option 2: PDF link appears in an <a> tag
         else:
-            print_warning("Could not find 'citation_pdf_url' <meta> in <head>, trying to search for an <a> link with a PDF href...")
+            print_warning(
+                "Could not find 'citation_pdf_url' <meta> in <head>, trying to search for an <a> link with a PDF href...")
             elems = soup.find_all("a")
             for e in elems:
                 if "Download full text in PDF" in e.text:
@@ -272,7 +282,7 @@ def sciencedirect_handler(opener, soup, parsed_url, parser, user_agent, verbosit
         html = html.decode('utf-8')
         substr = "window.location = '"
         pdfurl = html[html.find(substr) + len(substr):]
-        pdfurl = pdfurl[0 : pdfurl.find("'")]
+        pdfurl = pdfurl[0: pdfurl.find("'")]
         if verbosity > 1:
             click.echo("PDF URL: " + str(pdfurl))
 
@@ -289,10 +299,13 @@ def sciencedirect_handler(opener, soup, parsed_url, parser, user_agent, verbosit
 
     return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
+
 def springerlink_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
     path = parsed_url.path
-    if 'chapter/' in path:
+    if 'article/' in path:
+        paper_id = path[len('article/'):]
+    elif 'chapter/' in path:
         paper_id = path[len('chapter/'):]
     elif 'book/' in path:
         print_error("We do not yet support book/ in SpringerLink URLs")
@@ -314,29 +327,30 @@ def springerlink_handler(opener, soup, parsed_url, parser, user_agent, verbosity
             print("HTML for PDF:", elem)
 
         pdfurl = url_prefix + elem.get('href')
-    
+
     if bib_downl:
-        #elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
+        # elem = soup.select_one("#Dropdown-citations-dropdown > ul > li:nth-child(4) > a") # does not work because needs JS
         # e.g. of .bib URL: https://citation-needed.springer.com/v2/references/10.1007/978-3-540-28628-8_20?format=bibtex&flavour=citation
         biburl = 'https://citation-needed.springer.com/v2/references' + paper_id + '?format=bibtex&flavour=citation'
 
     return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
+
 # https://arxiv.org/pdf/XXXX.XXXX.pdf
 # https://arxiv.org/abs/XXXX.XXXX
 def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     if '.pdf' in parsed_url.path:
-        paper_id = parsed_url.path[len('/pdf/'):-len('.pdf')]    
+        paper_id = parsed_url.path[len('/pdf/'):-len('.pdf')]
     elif '/abs' in parsed_url.path:
         paper_id = parsed_url.path[len('/abs/'):]
     else:
-        assert(False) # not implemented yet
-    
+        assert (False)  # not implemented yet
+
     paper_id = paper_id.strip('/')
-    
+
     if verbosity > 0:
         print("arXiv paper ID:", paper_id)
-    
+
     # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
     pdfurl = None
     bibtex = None
@@ -345,12 +359,14 @@ def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
         pdfurl = 'https://arxiv.org/pdf/%s.pdf' % paper_id
 
     if bib_downl:
-        index_html = get_url(opener, 'https://arxiv2bibtex.org/?q=' + paper_id + '&format=bibtex', verbosity, user_agent)
+        index_html = get_url(opener, 'https://arxiv2bibtex.org/?q=' + paper_id + '&format=bibtex', verbosity,
+                             user_agent)
         soup = BeautifulSoup(index_html, parser)
         bibtex = soup.select_one('#bibtex > textarea').get_text().strip()
         bibtex = bibtex.encode('utf-8')
 
     return bibtex, download_pdf(opener, user_agent, pdfurl, verbosity)
+
 
 def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
@@ -359,13 +375,13 @@ def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, b
     splitpath = path.split('/')
     if '/doi/abs' in path:
         doi_start = splitpath[3]
-        doi_end   = splitpath[4]
-    else: # if just /doi in URL
+        doi_end = splitpath[4]
+    else:  # if just /doi in URL
         doi_start = splitpath[2]
-        doi_end   = splitpath[3]
-    doi       = doi_start + '/' + doi_end
-    doi_alt   = doi_start + '%2F' + doi_end
-    
+        doi_end = splitpath[3]
+    doi = doi_start + '/' + doi_end
+    doi_alt = doi_start + '%2F' + doi_end
+
     if verbosity > 0:
         print("Extracted DOI:", doi)
 
@@ -382,6 +398,7 @@ def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, b
         biburl = url_prefix + '/action/downloadCitation?doi=' + doi_alt + '&format=bibtex&include=cit'
 
     return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
+
 
 def ieeexplore_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     url_prefix = parsed_url.scheme + '://' + parsed_url.netloc

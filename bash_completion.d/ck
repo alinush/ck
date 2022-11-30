@@ -26,25 +26,25 @@ _citation_key_ck_completion() {
         case ${COMP_WORDS[1]} in
             b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|tag|u|un|unt|unta|untag)
             # NOTE: We do want these commands to be restricted to CKs in the current TagDir subdirectory, if that's where the user currently is.
-            local candidates=`ck list -s`
+            local candidates=`ck list -s ck -c`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             rea|read)
-            local candidates=`ck list -t -s queue/to-read queue/finished`
+            local candidates=`ck list -t -s ck -c queue/to-read queue/finished`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             d|de|deq|dequ|deque|dequeu|dequeue)
-            local candidates=`ck list -t -s queue/to-read`
+            local candidates=`ck list -t -s ck -c queue/to-read`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
             f|fi|fin|fini|finish|finishe|finished)
-            local candidates=`ck list -t -s queue/to-read queue/reading`
+            local candidates=`ck list -t -s ck -c queue/to-read queue/reading`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi

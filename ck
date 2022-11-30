@@ -1258,7 +1258,7 @@ def ck_genbib_cmd(ctx, output_file, tags, fmt, recursive):
         cks = cks_from_tags(ck_tag_dir, tags, recursive)
 
     num_copied = 0
-    for ck in cks:
+    for ck in sorted(cks):
         try:
             bibfilepath = ck_to_bib(ck_bib_dir, ck)
 
