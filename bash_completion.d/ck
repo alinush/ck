@@ -16,8 +16,8 @@ _citation_key_ck_completion() {
 
     if [ "${COMP_CWORD}" == "1" ]
     then
-        local line=`ck | grep -n "^Commands:$" | cut -f 1 -d':'`
-        local ck_subcommands=`ck | tail -n +$(($line+1)) | cut -f 3 -d' '`
+        local line=`ck --help | grep -n "^Commands:$" | cut -f 1 -d':'`
+        local ck_subcommands=`ck --help | tail -n +$(($line+1)) | cut -f 3 -d' '`
 
         local suggestions=(`compgen -W "$(echo $ck_subcommands)" -- "${cur}"`)
         COMPREPLY=("${suggestions[@]}")

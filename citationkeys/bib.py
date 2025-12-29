@@ -216,6 +216,9 @@ def bibent_get_author_initials_ck(bibent, verbosity):
         else:
             last_name = author.split(' ')[-1]
 
+        # Remove spaces from the last name (for names like "de Rooij" -> "deRooij")
+        last_name = last_name.replace(' ', '')
+
         if verbosity > 0:
             print("Last name of \"" + author + "\" is: " + last_name)
 

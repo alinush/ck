@@ -79,6 +79,7 @@ TODOs
 
 ### Bugs
 
+ - arxiv2bibtex.org stopped working; try https://github.com/nathangrigg/arxiv2bib
  - some springerlink URLs don't work because they have .ris citations only
     + e.g., https://link.springer.com/article/10.1007/s10207-005-0071-2 
 

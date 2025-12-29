@@ -8,7 +8,6 @@ from urllib.request import Request
 import pdfkit
 
 from bibtexparser.bwriter import BibTexWriter
-from weasyprint import HTML
 
 from citationkeys.bib import *
 from citationkeys.tags import *
@@ -287,71 +286,6 @@ def ck_addbib_cmd(ctx, url, citation_key):
     bibent['ID'] = citation_key
     bibent_set_dateadded(bibent, None)
     bibent_to_file(destbibfile, bibent)
-
-
-@ck.command('addpage')
-@click.argument('url', required=True, type=click.STRING)
-@click.argument('citation_key', required=False, type=click.STRING)
-@click.option(
-    '-e', '--engine',
-    default="weasyprint",
-    help="The HTML-to-PDF engine, which can be either 'pdfkit' or 'weasyprint'",
-    )
-@click.option(
-    '-n', '--no-tag-prompt',
-    is_flag=True,
-    default=False,
-    help='Does not prompt the user to tag the paper.'
-    )
-@click.pass_context
-def ck_addpage_cmd(ctx, url, citation_key, engine, no_tag_prompt):
-    """Adds the specified webpage to the library, by converting it to a PDF.
-       Uses the specified citation key, if given and not already used.
-       Otherwise, uses the DefaultCk policy in the configuration file."""
-
-    verbosity        = ctx.obj['verbosity']
-    default_ck       = ctx.obj['DefaultCk']
-    ck_bib_dir       = ctx.obj['BibDir']
-    ck_tag_dir       = ctx.obj['TagDir']
-
-    # prompt for .bib with some information like @misc and add URL pre-completed
-    original_citation_key = citation_key
-    bibent = bibent_from_url(citation_key if citation_key is not None else "WillBeDerivedAutomatically", url)
-
-    initial_bibtex = bibent_to_bibtex(bibent)
-    _, bibent = prompt_for_bibtex(ctx, initial_bibtex)
-
-    # Use default CK if no CK is was given
-    if citation_key is None:
-        citation_key = bibent_to_default_ck(bibent, default_ck, verbosity)
-        bibent['ID'] = citation_key
-    else:
-        bibent['ID'] = citation_key
-
-    # make sure derived or user-chose CK is not used
-    if ck_exists(ck_bib_dir, citation_key):
-        error_citation_exists(ctx, citation_key)
-        sys.exit(1)
-
-    # derive .bib and .pdf paths
-    destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
-    destbibfile = ck_to_bib(ck_bib_dir, citation_key)
-
-    # download HTML as PDF
-    if engine == "weasyprint":
-        HTML(url).write_pdf(destpdffile)    # defaults to using 'media' print
-    elif engine == "pdfkit":
-        options = {
-          "print-media-type": None  # forces 'media' print
-        }
-        pdfkit.from_url(url, destpdffile, options)
-    else:
-        print_error("Unsupported HTML-to-PDF engine: " + engine)
-        sys.exit(1)
-
-    # write .bib file
-    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt)
-
 
 @ck.command('add')
 @click.argument('url', required=True, type=click.STRING)
@@ -687,6 +621,7 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
         sys.exit(1)
 
     if len(tags) == 0:
+        # Check if pdfgrep is installed
         completed = subprocess.run(
             ['which pdfgrep'],
             shell=True,
@@ -694,8 +629,10 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
             stderr=subprocess.DEVNULL,
         )
 
+        # Fetch all the tags currently active
         tags = get_all_tags(ck_tag_dir)
 
+        # If pdfgrep is installed, grep for each tag in the PDF and see if it matches
         if completed.returncode != 0: 
             print_warning("Not suggesting any tags because 'pdfgrep' is not installed.")
         elif len(tags) > 0:
@@ -1204,6 +1141,8 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, ck_only, sort, 
             print_warning("Unknown sorting index ('" + sort + "'), defaulting to 'date-added'")
             sort = 'date-added'
             sort_idx = 4 # date-added
+
+        #print("sort_idx:", sort_idx);
 
         sorted_cks = sorted(ck_tuples, key=lambda item: item[sort_idx])
 
