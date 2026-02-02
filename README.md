@@ -14,22 +14,60 @@ Features:
 Setup
 -----
 
-    ./install-deps.sh
+### 1. Add a `ck` function to your shell config
+
+Add the following to your `~/.bashrc` or `~/.bash_aliases`:
+
+```bash
+# Helper function to run ck with venv
+function ck() {
+    local ck_dir="$HOME/repos/ck"  # adjust path as needed
+    local venv_dir="$ck_dir/venv"
+    
+    # Create venv if it doesn't exist
+    if [ ! -d "$venv_dir" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv "$venv_dir" || return 1
+    fi
+    
+    # Activate venv and install deps if needed
+    source "$venv_dir/bin/activate"
+    if ! python3 -c "import click" 2>/dev/null; then
+        echo "Installing dependencies..."
+        pip install -r "$ck_dir/requirements.txt" || return 1
+    fi
+    
+    # Run ck with all arguments
+    "$ck_dir/ck" "$@"
+    
+    deactivate
+}
+```
+
+Then reload your shell config:
+
+    source ~/.bashrc  # or ~/.bash_aliases
+
+The first time you run `ck`, it will automatically create a virtual environment and install all dependencies.
+
+### 2. Configure ck
 
 Fill in `ck.config` and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
 
-For auto tag-suggesting, you can install pdfgrep (optional):
+### 3. Optional dependencies
+
+For auto tag-suggesting, you can install pdfgrep:
 
     apt install pdfgrep # Ubuntu/Debian
     brew install pdfgrep # Mac OS
 
-To install bash auto-completion, run
-
-    source bash_completion.d/ck
-
-Other dependencies:
+For PDF generation features:
 
     brew install pango libffi # Mac OS
+
+To install bash auto-completion, run:
+
+    source bash_completion.d/ck
 
 Other useful, related repositories
 ----------------------------------
@@ -101,7 +139,6 @@ Add support for downloading a webpage as a PDF and adding it.
 
  - `ck tag/untag/genbib/copypdfs` autocompletion of tags
  - figure out how to have a `setup.py` that installs this thing
-    + add a `requirements.txt` too
  - if PDFs are not available from publisher, try sci-hub.tw: see [python example here](https://gist.github.com/mpratt14/df20f09a06ba4249f3fad0776610f39d)
  - Cryptology ePrint updater: need it to update papers to their latest versions
     - `ck` should run this once a day
