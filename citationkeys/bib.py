@@ -315,7 +315,7 @@ def bibent_to_fmt(bibent, fmt):
         year = bibent['year']
     authors = authors.replace("{", "")
     authors = authors.replace("}", "")
-    authros = authors.replace('\n', ' ').replace('\r', '')  # sometimes author names are given on separate lines, which breaks the Markdown formatting
+    authors = authors.replace('\n', ' ').replace('\r', '')  # sometimes author names are given on separate lines, which breaks the Markdown formatting
     citation_key = citation_key.replace("+", "plus") # beautiful-jekyll is not that beautiful and doesn't like '+' in footnote names
 
     if fmt == "markdown":
@@ -324,7 +324,7 @@ def bibent_to_fmt(bibent, fmt):
         to_fmt = "[" + citation_key + "] " + title + "; by " + authors
     else:
         print_error("Unknown format: " + fmt)
-        raise "Internal error"
+        raise RuntimeError("Internal error")
 
     venue = bibent_get_venue(bibent)
     if venue != None:

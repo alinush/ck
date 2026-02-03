@@ -54,13 +54,13 @@ def prompt_for_ck(ctx, prompt):
 
 def ck_to_pdf(ck_bib_dir, ck):
     if ck == None or len(ck) == 0:
-        raise "Cannot derive PDF file path from empty citation key"
+        raise ValueError("Cannot derive PDF file path from empty citation key")
 
     return os.path.join(ck_bib_dir, ck + ".pdf")
 
 def ck_to_bib(ck_bib_dir, ck):
     if ck == None or len(ck) == 0:
-        raise "Cannot derive BibTeX file path from empty citation key"
+        raise ValueError("Cannot derive BibTeX file path from empty citation key")
 
     return os.path.join(ck_bib_dir, ck + ".bib")
 

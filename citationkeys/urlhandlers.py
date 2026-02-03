@@ -32,7 +32,7 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
         print("Downloading URL:", url)
 
     if user_agent is None:
-        raise "Please specify a user agent"
+        raise ValueError("Please specify a user agent")
 
     try:
         extra_headers['User-Agent'] = user_agent
@@ -61,8 +61,7 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
         raise
 
     if response.getcode() != 200:
-        print("ERROR: Got" + response.getcode() + " response code")
-        raise
+        raise RuntimeError("ERROR: Got " + str(response.getcode()) + " response code")
 
     html = response.read()
 
