@@ -1,4 +1,8 @@
-import readline
+# Use gnureadline on macOS for proper tab completion (libedit has issues)
+try:
+    import gnureadline as readline
+except ImportError:
+    import readline
 
 
 def readline_enable_tab_autocompletion():

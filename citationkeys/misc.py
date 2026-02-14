@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
 import os
-import readline
+# Use gnureadline on macOS for proper tab completion (libedit has issues)
+try:
+    import gnureadline as readline
+except ImportError:
+    import readline
 import sys
 import traceback
 from collections import defaultdict

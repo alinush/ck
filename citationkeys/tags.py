@@ -8,7 +8,11 @@ from pprint import pprint
 import bibtexparser
 import click
 import os
-import readline  # improves tagging experience a lot!
+# Use gnureadline on macOS for proper tab completion (libedit has issues)
+try:
+    import gnureadline as readline
+except ImportError:
+    import readline
 import sys
 import traceback
 
@@ -170,9 +174,13 @@ def prompt_for_tags(ctx, prompt):
     delims = readline.get_completer_delims().replace('/', '').replace('-', '')
     readline.set_completer_delims(delims)
 
-    # TODO: this no longer seems to work when libedit is used.
-    # Try NestedCompleter from this library:
-    # https://python-prompt-toolkit.readthedocs.io/en/master/pages/asking_for_input.html#autocompletion
+    # NOTE: On macOS, we use gnureadline instead of libedit for proper tab completion.
+    # TODO: Consider switching to prompt_toolkit for a better UX:
+    #   - Dropdown menu showing available completions
+    #   - Fuzzy matching support
+    #   - NestedCompleter for hierarchical tags (e.g., accumulators/merkle)
+    #   - Pure Python (no compilation issues)
+    #   - See: https://python-prompt-toolkit.readthedocs.io/en/master/pages/asking_for_input.html#autocompletion
     readline_enable_tab_autocompletion()
 
     tags_str = input(prompt + ' (use Tab to autocomplete): ')
