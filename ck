@@ -296,8 +296,14 @@ def ck_addbib_cmd(ctx, url, citation_key):
     default=False,
     help='Does not prompt the user to tag the paper.'
     )
+@click.option(
+    '-t', '--tag',
+    multiple=True,
+    type=click.STRING,
+    help='Tag the paper with the specified tag. Can be specified multiple times.'
+    )
 @click.pass_context
-def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
+def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     """Adds the paper to the library (.pdf and .bib file).
        Uses the specified citation key, if given.
        Otherwise, uses the DefaultCk policy in the configuration file."""
@@ -390,17 +396,20 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt):
         fout.write(pdf_data)
 
     # Will not write the .bib file when this is a non-handled URL and a .bib file exists
-    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt)
+    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tag)
 
-def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt):
+def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tags=()):
     # Write the .bib file
     if not os.path.exists(destbibfile):
         # First, sets the 'ckdateadded' field in the .bib file
         bibent_set_dateadded(bibent, None)
         bibent_to_file(destbibfile, bibent)
 
-    # Prompt the user to tag the paper
-    if not no_tag_prompt:
+    # If tags were specified via --tag, apply them directly
+    if tags:
+        ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags=tags, silent=True)
+    elif not no_tag_prompt:
+        # Prompt the user to tag the paper
         # First, open the PDF so the user can read it before asking them for the tags
         ctx.invoke(ck_open_cmd, filename=citation_key)
         ctx.invoke(ck_tag_cmd, citation_key=citation_key, silent=True)

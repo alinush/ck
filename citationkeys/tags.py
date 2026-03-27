@@ -140,7 +140,8 @@ def print_tags(tags):
         else:
             return prefix[:pos]
 
-    print(style_tags(tags))
+    for tag in tags:
+        print(click.style('#' + tag, fg='yellow'))
 
 
 def style_tags(taglist):
