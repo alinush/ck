@@ -55,9 +55,10 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
                 raise RuntimeError("Expected this to be URL to " + str(
                     restrict_content_type) + " but got '" + content_type + "' Content-Type")
     except urllib.error.HTTPError as err:
-        print("HTTP Error Code: ", err.code)
-        print("HTTP Error Reason: ", err.reason)
-        print("HTTP Error Headers: ", err.headers)
+        if verbosity > 0:
+            print("HTTP Error Code: ", err.code)
+            print("HTTP Error Reason: ", err.reason)
+            print("HTTP Error Headers: ", err.headers)
         raise
 
     if response.getcode() != 200:
@@ -116,6 +117,7 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     # the URL itself.
     no_index_html = set()
     # no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
+    no_index_html.add("dl.acm.org")  # Cloudflare blocks urllib requests; DOI+PDF URLs can be derived from the URL
 
     if domain in handlers:
         handler = handlers[domain]
@@ -153,15 +155,8 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
     pdf_data = None
     bibtex = None
 
-    if pdf_downl:
-        # First, we scrape the PDF link
-        elem = soup.find('a', attrs={"title": "PDF"})
-        url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
-        pdfurl = url_prefix + elem.get('href')
-        if verbosity > 0:
-            print("ACM DL paper PDF URL:", pdfurl)
-        pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
-
+    # NOTE: BibTeX is fetched first because it goes through doi.org (not blocked by Cloudflare),
+    # while the PDF download from dl.acm.org may require manual intervention.
     if bib_downl:
         # Ugh, the new dl.acm.org has no easy way of getting the BibTeX AFAICT, so using something else
         biburl = "http://doi.org/" + doi
@@ -169,15 +164,26 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
             print("ACM DL paper bib URL:", biburl)
         bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
 
-        # TODO: There is a <form action="/action/exportCiteProcCitation"> element with <input name="content"> which seems to have the BibTeX, but we need to send it a POST request, I think
-        # TODO: write a post_url() function that does this and then parse the response?
-
-        # elem = soup.find('form', attrs={"action": "/action/exportCiteProcCitation"})
-        # print(elem)
-
         if verbosity > 1:
             # Assuming UTF8 encoding. Will pay for this later, rest assured.
             print("ACM DL paper BibTeX: ", bibtex.decode("utf-8"))
+
+    if pdf_downl:
+        # Construct PDF URL directly from DOI (avoids needing to scrape the page,
+        # which is blocked by Cloudflare)
+        url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+        pdfurl = url_prefix + '/doi/pdf/' + doi
+        if verbosity > 0:
+            print("ACM DL paper PDF URL:", pdfurl)
+        try:
+            pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                click.echo("ACM DL is behind Cloudflare and blocked the automatic PDF download.")
+                click.echo("Opening the PDF URL in your browser...")
+                click.launch(pdfurl)
+            else:
+                raise
 
     return bibtex, pdf_data
 

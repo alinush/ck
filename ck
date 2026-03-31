@@ -391,9 +391,19 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         error_citation_exists(ctx, citation_key)
         sys.exit(1)
     
-    # Write the PDF file
-    with open(destpdffile, 'wb') as fout:
-        fout.write(pdf_data)
+    # If the PDF download failed (e.g., Cloudflare 403), wait for the user to
+    # manually save the PDF directly to the destination path.
+    if pdf_data is None:
+        click.echo("Save the PDF from your browser directly to: ", nl=False)
+        click.secho(destpdffile, fg="blue")
+        click.pause("Press any key when done...")
+        if not os.path.exists(destpdffile):
+            print_error("PDF not found at " + destpdffile)
+            sys.exit(1)
+    else:
+        # Write the PDF file
+        with open(destpdffile, 'wb') as fout:
+            fout.write(pdf_data)
 
     # Will not write the .bib file when this is a non-handled URL and a .bib file exists
     write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tag)
