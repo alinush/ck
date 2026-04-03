@@ -358,19 +358,15 @@ def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
 
     # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
     pdfurl = None
-    bibtex = None
+    biburl = None
 
     if pdf_downl:
         pdfurl = 'https://arxiv.org/pdf/%s.pdf' % paper_id
 
     if bib_downl:
-        index_html = get_url(opener, 'https://arxiv2bibtex.org/?q=' + paper_id + '&format=bibtex', verbosity,
-                             user_agent)
-        soup = BeautifulSoup(index_html, parser)
-        bibtex = soup.select_one('#bibtex > textarea').get_text().strip()
-        bibtex = bibtex.encode('utf-8')
+        biburl = 'https://arxiv.org/bibtex/%s' % paper_id
 
-    return bibtex, download_pdf(opener, user_agent, pdfurl, verbosity)
+    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
 
 def epubssiam_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
