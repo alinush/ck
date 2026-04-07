@@ -23,8 +23,24 @@ _citation_key_ck_completion() {
         COMPREPLY=("${suggestions[@]}")
     else
 
+        local prev="${COMP_WORDS[COMP_CWORD-1]}"
+
         case ${COMP_WORDS[1]} in
-            b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|tag|u|un|unt|unta|untag)
+            tag)
+            # If previous word is -r or --remove, complete with tag names
+            if [ "$prev" == "-r" ] || [ "$prev" == "--remove" ]; then
+                local candidates=$(cd "$TagDir" && find . -type d -not -path './.git*' -not -path '.' | sed 's|^\./||')
+                if [ "${#candidates}" != "0" ]; then
+                    COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+                fi
+            else
+                local candidates=`ck list -s ck -c`
+                if [ "${#candidates}" != "0" ]; then
+                    COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
+                fi
+            fi
+            ;;
+            b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|u|un|unt|unta|untag)
             # NOTE: We do want these commands to be restricted to CKs in the current TagDir subdirectory, if that's where the user currently is.
             local candidates=`ck list -s ck -c`
             if [ "${#candidates}" != "0" ]; then

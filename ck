@@ -374,20 +374,40 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     destpdffile = ck_to_pdf(ck_bib_dir, citation_key)
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
     
-    # Make sure we've never added this paper's PDF before! Note that its bib file might've been added with `addbib`
-    # (Otherwise, user will be surprised when they overwrite their previous papers.)
+    # Check if this paper already exists and offer to update it
+    is_update = False
     if os.path.exists(destpdffile):
-        error_citation_exists(ctx, citation_key)
-        sys.exit(1)
+        click.secho("Citation key " + citation_key + " already exists.", fg="yellow")
+        if not click.confirm("Would you like to overwrite the PDF (and update the date added)?", default=False):
+            sys.exit(1)
 
-    # One caveat:
-    #  - For handled URLs, if we have a .bib file but no PDF, then something went wrong, so we err on the side of displaying an error to the user
-    #  - For non-handled URLs, a .bib file might be there from a previous 'ck bib' or 'ck open' command, and we want to leave it untouched.
-    #
-    # TODO(Alin): This makes the flow of 'ck add' too complicated to follow.
-    # We should simplify it by adding 'ck updatepdf' and 'ck updatebib' as commands used to update the .bib and .pdf files explicitly.
-    # Then, 'ck add' should always check that neither a PDF nor a .bib file exists.
-    if is_handled and os.path.exists(destbibfile):
+        # Back up the old PDF using the ckdateadded from the existing .bib file
+        if os.path.exists(destbibfile):
+            old_bibent = bibent_from_file(destbibfile)
+            old_dateadded = old_bibent.get('ckdateadded', None)
+            if old_dateadded:
+                # ckdateadded is "YYYY-MM-DD HH:MM:SS"; extract just the date
+                backup_date = old_dateadded.split(" ")[0]
+            else:
+                backup_date = "unknown-date"
+        else:
+            backup_date = "unknown-date"
+
+        backup_pdf = os.path.join(ck_bib_dir, citation_key + "." + backup_date + ".pdf")
+        if os.path.exists(backup_pdf):
+            click.secho("Warning: backup file already exists: " + backup_pdf, fg="red")
+            if not click.confirm("Overwrite the backup too?", default=False):
+                sys.exit(1)
+
+        os.rename(destpdffile, backup_pdf)
+        click.echo("Backed up old PDF to: ", nl=False)
+        click.secho(backup_pdf, fg="green")
+        is_update = True
+
+    elif is_handled and os.path.exists(destbibfile):
+        # For handled URLs, if we have a .bib file but no PDF, then something went wrong,
+        # so we err on the side of displaying an error to the user.
+        # For non-handled URLs, a .bib file might be there from a previous 'ck bib' or 'ck open' command.
         error_citation_exists(ctx, citation_key)
         sys.exit(1)
     
@@ -406,11 +426,15 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
             fout.write(pdf_data)
 
     # Will not write the .bib file when this is a non-handled URL and a .bib file exists
-    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tag)
+    write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tag, is_update)
 
-def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tags=()):
+def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_prompt, tags=(), is_update=False):
     # Write the .bib file
-    if not os.path.exists(destbibfile):
+    if is_update:
+        # On update, refresh the ckdateadded and overwrite the .bib file
+        bibent_set_dateadded(bibent, None)
+        bibent_to_file(destbibfile, bibent)
+    elif not os.path.exists(destbibfile):
         # First, sets the 'ckdateadded' field in the .bib file
         bibent_set_dateadded(bibent, None)
         bibent_to_file(destbibfile, bibent)
@@ -418,7 +442,7 @@ def write_bib_and_prompt_for_tag(ctx, destbibfile, bibent, citation_key, no_tag_
     # If tags were specified via --tag, apply them directly
     if tags:
         ctx.invoke(ck_tag_cmd, citation_key=citation_key, tags=tags, silent=True)
-    elif not no_tag_prompt:
+    elif not no_tag_prompt and not is_update:
         # Prompt the user to tag the paper
         # First, open the PDF so the user can read it before asking them for the tags
         ctx.invoke(ck_open_cmd, filename=citation_key)
@@ -612,15 +636,20 @@ def ck_tags_cmd(ctx, matching_tag):
             click.secho("No tags matching '" + matching_tag + "' in library.", fg='yellow')
 
 @ck.command('tag')
-@click.argument('citation_key', required=True, type=click.STRING)
+@click.argument('citation_key', required=False, type=click.STRING)
 @click.argument('tags', required=False, nargs=-1, type=click.STRING)
 @click.option(
     '-s', '--silent',
     is_flag=True,
     default=False,
     help='Does not display error message when paper is already tagged.')
+@click.option(
+    '-r', '--remove',
+    type=click.STRING,
+    default=None,
+    help='Removes a tag from the library (deletes the tag directory).')
 @click.pass_context
-def ck_tag_cmd(ctx, silent, citation_key, tags):
+def ck_tag_cmd(ctx, silent, remove, citation_key, tags):
     """Tags the specified paper"""
 
     ctx.ensure_object(dict)
@@ -628,6 +657,20 @@ def ck_tag_cmd(ctx, silent, citation_key, tags):
     ck_bib_dir = ctx.obj['BibDir']
     ck_tag_dir = ctx.obj['TagDir']
     ck_tags    = ctx.obj['tags']
+
+    if remove is not None:
+        tag_path = os.path.join(ck_tag_dir, remove)
+        if not os.path.isdir(tag_path):
+            print_error("Tag '" + remove + "' does not exist.")
+            sys.exit(1)
+        if click.confirm("Are you sure you want to remove the '" + click.style(remove, fg="cyan") + "' tag?"):
+            shutil.rmtree(tag_path)
+            click.secho("Removed '" + remove + "' tag.", fg="green")
+        return
+
+    if citation_key is None:
+        print_error("Missing argument 'CITATION_KEY'.")
+        sys.exit(1)
 
     #if not silent:
     #    click.echo("Tagging '" + style_ck(citation_key) + "' with " + style_tags(tags) + "...")
