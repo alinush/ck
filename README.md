@@ -69,6 +69,22 @@ To install bash auto-completion, run:
 
     source bash_completion.d/ck
 
+Testing
+-------
+
+Run all tests (unit + integration):
+
+    source venv/bin/activate
+    python -m pytest -v
+
+Skip slow network tests (URL handlers that hit real websites):
+
+    python -m pytest -m "not integration" -v
+
+Run only URL handler integration tests:
+
+    python -m pytest tests/test_urlhandlers.py -v
+
 Other useful, related repositories
 ----------------------------------
 

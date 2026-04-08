@@ -3,6 +3,62 @@
 # Sources:
 # https://iridakos.com/tutorials/2018/03/01/bash-programmable-completion-tutorial.html
 
+_ck_complete_tags() {
+    # Hierarchical tag completion: lists immediate children of the tag prefix in cur
+    # Appends / to tags that have subtags so the user can keep tabbing deeper
+    local cur="$1" TagDir="$2"
+    local tag_parent="${cur%/*}"
+    local search_dir="$TagDir"
+    local prefix=""
+    if [[ "$cur" == */* ]]; then
+        search_dir="$TagDir/$tag_parent"
+        prefix="$tag_parent/"
+    fi
+    if [ -d "$search_dir" ]; then
+        # Build an array of candidates, appending / to dirs that have subdirs
+        local -a candidates=()
+        for d in "$search_dir"/*/; do
+            [ -d "$d" ] || continue
+            local name=$(basename "$d")
+            [[ "$name" == .git* ]] && continue
+            # Check if this tag has subtags
+            local has_subtags=false
+            for sub in "$d"/*/; do
+                if [ -d "$sub" ]; then
+                    has_subtags=true
+                    break
+                fi
+            done
+            if $has_subtags; then
+                candidates+=("${prefix}${name}/")
+            else
+                candidates+=("${prefix}${name}")
+            fi
+        done
+        if [ ${#candidates[@]} -gt 0 ]; then
+            COMPREPLY=($(compgen -W "$(printf '%s ' "${candidates[@]}")" -- "${cur}"))
+            # If the only match ends with /, also include its children so bash
+            # doesn't append a space and lets the user keep tabbing deeper
+            if [ ${#COMPREPLY[@]} -eq 1 ] && [[ "${COMPREPLY[0]}" == */ ]]; then
+                local match="${COMPREPLY[0]}"
+                local match_dir="$TagDir/${match%/}"
+                for d in "$match_dir"/*/; do
+                    [ -d "$d" ] || continue
+                    local cname=$(basename "$d")
+                    [[ "$cname" == .git* ]] && continue
+                    local has_sub=false
+                    for sub in "$d"/*/; do [ -d "$sub" ] && has_sub=true && break; done
+                    if $has_sub; then
+                        COMPREPLY+=("${match}${cname}/")
+                    else
+                        COMPREPLY+=("${match}${cname}")
+                    fi
+                done
+            fi
+        fi
+    fi
+}
+
 _citation_key_ck_completion() {
     # this stops autocompletion from adding the same word multiple times after it was added the first time
 
@@ -27,48 +83,39 @@ _citation_key_ck_completion() {
 
         case ${COMP_WORDS[1]} in
             tag)
-            # If previous word is -r or --remove, complete with tag names
             if [ "$prev" == "-r" ] || [ "$prev" == "--remove" ]; then
-                local candidates=$(cd "$TagDir" && find . -type d -not -path './.git*' -not -path '.' | sed 's|^\./||')
-                if [ "${#candidates}" != "0" ]; then
-                    COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
-                fi
-            else
+                _ck_complete_tags "$cur" "$TagDir"
+            elif [ "$COMP_CWORD" == "2" ]; then
+                # First argument: citation key
                 local candidates=`ck list -s ck -c`
                 if [ "${#candidates}" != "0" ]; then
                     COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
                 fi
+            else
+                # Subsequent arguments: tag names
+                _ck_complete_tags "$cur" "$TagDir"
             fi
             ;;
-            b|bi|bib|i|in|inf|info|o|op|ope|open|q|qu|que|queu|queue|ren|rena|renam|rename|rm|u|un|unt|unta|untag)
+            b|bi|bib|i|in|inf|info|o|op|ope|open|ren|rena|renam|rename|rm|u|un|unt|unta|untag)
             # NOTE: We do want these commands to be restricted to CKs in the current TagDir subdirectory, if that's where the user currently is.
             local candidates=`ck list -s ck -c`
             if [ "${#candidates}" != "0" ]; then
                 COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
             fi
             ;;
-            rea|read)
-            local candidates=`ck list -t -s ck -c queue/to-read queue/finished`
-            if [ "${#candidates}" != "0" ]; then
-                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
-            fi
-            ;;
-            d|de|deq|dequ|deque|dequeu|dequeue)
-            local candidates=`ck list -t -s ck -c queue/to-read`
-            if [ "${#candidates}" != "0" ]; then
-                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
-            fi
-            ;;
-            f|fi|fin|fini|finish|finishe|finished)
-            local candidates=`ck list -t -s ck -c queue/to-read queue/reading`
-            if [ "${#candidates}" != "0" ]; then
-                COMPREPLY=(`compgen -W "$(echo ${candidates[@]})" -- "${cur}"`)
-            fi
-            ;;
             l|li|lis|list)
-            if [ "${#COMP_WORDS[@]}" -gt "2" ] && [ "${COMP_WORDS[2]}" == "-t" ]; then
-                # When -t is given, cd to TagDir so the autocompletion only suggests tags
-                cd "$TagDir"
+            # Check if -t or --tags appears anywhere in the command
+            local has_tags_flag=false
+            for word in "${COMP_WORDS[@]}"; do
+                if [ "$word" == "-t" ] || [ "$word" == "--tags" ]; then
+                    has_tags_flag=true
+                    break
+                fi
+            done
+
+            if $has_tags_flag; then
+                _ck_complete_tags "$cur" "$TagDir"
+                return 0
             fi
 
             # WARNING: I simply copy, pasted & modified 'cd' bash_completion code here. Proceed with caution.
