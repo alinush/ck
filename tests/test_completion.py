@@ -14,7 +14,7 @@ REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPLETION_SCRIPT = os.path.join(REPO_DIR, "bash_completion.d", "ck")
 
 
-def run_completion(tag_dir, bib_dir, comp_words, comp_cword, func="_citation_key_ck_completion"):
+def run_completion(tag_dir, bib_dir, comp_words, comp_cword, func="_citation_key_ck_completion", cwd=None):
     """Run a completion function and return COMPREPLY as a list."""
     config_file = os.path.join(os.path.dirname(tag_dir), "ck-test.config")
 
@@ -84,6 +84,7 @@ HELPEOF
     result = subprocess.run(
         ["bash", "-c", script],
         capture_output=True, text=True,
+        cwd=cwd,
     )
     if result.returncode != 0:
         raise RuntimeError(f"Completion script failed: {result.stderr}")
@@ -280,3 +281,91 @@ class TestSubcommands:
         assert "dequeue" not in replies
         assert "read" not in replies
         assert "finished" not in replies
+
+
+class TestAddCommand:
+    """Tests for ck add file path completion."""
+
+    @pytest.fixture
+    def pdf_dir(self, tmp_path):
+        """Create a directory with some PDF files and subdirs for testing."""
+        d = tmp_path / "downloads"
+        d.mkdir()
+        (d / "paper1.pdf").write_bytes(b"%PDF fake")
+        (d / "paper2.pdf").write_bytes(b"%PDF fake")
+        (d / "notes.txt").write_bytes(b"some notes")
+        sub = d / "subdir"
+        sub.mkdir()
+        (sub / "deep.pdf").write_bytes(b"%PDF fake")
+        return d
+
+    def test_completes_files_in_cwd(self, completion_dirs, pdf_dir):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", ""],
+            comp_cword=2,
+            cwd=str(pdf_dir),
+        )
+        assert "paper1.pdf" in replies
+        assert "paper2.pdf" in replies
+        assert "notes.txt" in replies
+
+    def test_completes_with_prefix(self, completion_dirs, pdf_dir):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", "paper"],
+            comp_cword=2,
+            cwd=str(pdf_dir),
+        )
+        assert "paper1.pdf" in replies
+        assert "paper2.pdf" in replies
+        assert "notes.txt" not in replies
+
+    def test_directories_get_slash(self, completion_dirs, pdf_dir):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", "sub"],
+            comp_cword=2,
+            cwd=str(pdf_dir),
+        )
+        assert "subdir/" in replies
+
+    def test_single_dir_match_expands_children(self, completion_dirs, pdf_dir):
+        """When a single directory matches, its children are included so bash
+        doesn't append a space and the user can keep tabbing deeper."""
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", "sub"],
+            comp_cword=2,
+            cwd=str(pdf_dir),
+        )
+        assert "subdir/" in replies
+        assert "subdir/deep.pdf" in replies
+
+    def test_absolute_path_single_dir_expands_children(self, completion_dirs, pdf_dir):
+        """Absolute path to a unique directory also expands children."""
+        tag_dir, bib_dir = completion_dirs
+        prefix = str(pdf_dir) + "/sub"
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", prefix],
+            comp_cword=2,
+            cwd=str(pdf_dir),
+        )
+        assert str(pdf_dir) + "/subdir/" in replies
+        assert str(pdf_dir) + "/subdir/deep.pdf" in replies
+
+    def test_tag_option_completes_tags(self, completion_dirs, pdf_dir):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "add", "paper1.pdf", "MyCK", "-t", ""],
+            comp_cword=5,
+            cwd=str(pdf_dir),
+        )
+        assert "sigs/" in replies
+        assert "commitments" in replies

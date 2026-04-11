@@ -305,7 +305,9 @@ def ck_addbib_cmd(ctx, url, citation_key):
 @click.pass_context
 def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     """Adds the paper to the library (.pdf and .bib file).
-       Uses the specified citation key, if given.
+
+       The first argument can be a URL or a local PDF file path.
+       When a local path is given, a citation key must be supplied.
        Otherwise, uses the DefaultCk policy in the configuration file."""
 
     ctx.ensure_object(dict)
@@ -315,41 +317,68 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     ck_bib_dir       = ctx.obj['BibDir']
     ck_tag_dir       = ctx.obj['TagDir']
 
-    # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
-    # websites from borking.
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    user_agent = UserAgent().random
+    # Check if the argument is a local PDF file path
+    is_local_file = os.path.isfile(url)
 
-    # Download PDF (and potentially .bib file too, if the URL is handled)
-    is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
+    if is_local_file:
+        click.echo("Local PDF file detected: " + url)
 
-    if not is_handled:
-        click.echo("No handler for URL was found. This is a PDF-only download, so expecting user to give a citation key.")
-        
-        # If no citation key is given, fail because we can't check .bib file exists until after
-        # user did all the .bib file editing. Thus, it would be unfriendly to tell them their
-        # citation key already exists and waste their editing work.
         if not citation_key:
-            print_error("Please supply the citation key too, since it cannot be determined from PDF only.")
+            print_error("Please supply the citation key too, since it cannot be determined from a local PDF file.")
             sys.exit(1)
 
-        try:
-            click.echo("Trying to download as PDF...")
-            pdf_data = download_pdf(opener, user_agent, url, verbosity)
-        except:
-            print_error("Specified URL is probably not a PDF URL.")
-            sys.exit(1)
+        pdf_data = file_to_bytes(url)
+        is_handled = False
+        bibtex = None
 
         # If there's no .bib file for the user's citation key, let them edit one manually.
         bibpath_tmp = ck_to_bib(ck_bib_dir, citation_key)
         if not os.path.exists(bibpath_tmp):
-            bibent = bibent_from_url(citation_key, url)
+            bibent = bibent_new(citation_key, "misc")
+            bibent['author'] = ''
+            bibent['year'] = ''
+            bibent['title'] = ''
             initial_bibtex = bibent_to_bibtex(bibent)
             bibtex, _ = prompt_for_bibtex(ctx, initial_bibtex)
         else:
             # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
             bibtex = file_to_bytes(bibpath_tmp)
+    else:
+        # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
+        # websites from borking.
+        cj = CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        user_agent = UserAgent().random
+
+        # Download PDF (and potentially .bib file too, if the URL is handled)
+        is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
+
+        if not is_handled:
+            click.echo("No handler for URL was found. This is a PDF-only download, so expecting user to give a citation key.")
+
+            # If no citation key is given, fail because we can't check .bib file exists until after
+            # user did all the .bib file editing. Thus, it would be unfriendly to tell them their
+            # citation key already exists and waste their editing work.
+            if not citation_key:
+                print_error("Please supply the citation key too, since it cannot be determined from PDF only.")
+                sys.exit(1)
+
+            try:
+                click.echo("Trying to download as PDF...")
+                pdf_data = download_pdf(opener, user_agent, url, verbosity)
+            except:
+                print_error("Specified URL is probably not a PDF URL.")
+                sys.exit(1)
+
+            # If there's no .bib file for the user's citation key, let them edit one manually.
+            bibpath_tmp = ck_to_bib(ck_bib_dir, citation_key)
+            if not os.path.exists(bibpath_tmp):
+                bibent = bibent_from_url(citation_key, url)
+                initial_bibtex = bibent_to_bibtex(bibent)
+                bibtex, _ = prompt_for_bibtex(ctx, initial_bibtex)
+            else:
+                # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+                bibtex = file_to_bytes(bibpath_tmp)
 
     #
     # Invariant: We have the PDF data in pdf_data and the .bib data in bibtex.

@@ -82,6 +82,42 @@ _citation_key_ck_completion() {
         local prev="${COMP_WORDS[COMP_CWORD-1]}"
 
         case ${COMP_WORDS[1]} in
+            a|ad|add)
+            if [ "$prev" == "-t" ] || [ "$prev" == "--tag" ]; then
+                _ck_complete_tags "$cur" "$TagDir"
+            else
+                # Complete with files/directories for local PDF path support
+                local IFS=$'\n'
+                COMPREPLY=($(compgen -f -- "${cur}"))
+                # Expand ~ for file-type checks (bash doesn't expand ~ in variables)
+                local i expanded
+                for i in "${!COMPREPLY[@]}"; do
+                    expanded="${COMPREPLY[$i]/#\~/$HOME}"
+                    if [ -d "$expanded" ]; then
+                        COMPREPLY[$i]="${COMPREPLY[$i]}/"
+                    fi
+                done
+                # If the only match is a directory, include its children so bash
+                # doesn't append a space and lets the user keep tabbing deeper
+                if [ ${#COMPREPLY[@]} -eq 1 ] && [[ "${COMPREPLY[0]}" == */ ]]; then
+                    local match="${COMPREPLY[0]}"
+                    local expanded_match="${match/#\~/$HOME}"
+                    for f in "$expanded_match"*; do
+                        [ -e "$f" ] || continue
+                        # Convert expanded $HOME back to ~ if the original used ~
+                        local display="$f"
+                        if [[ "$match" == "~/"* ]]; then
+                            display="~/${f#$HOME/}"
+                        fi
+                        if [ -d "$f" ]; then
+                            COMPREPLY+=("${display}/")
+                        else
+                            COMPREPLY+=("${display}")
+                        fi
+                    done
+                fi
+            fi
+            ;;
             tag)
             if [ "$prev" == "-r" ] || [ "$prev" == "--remove" ]; then
                 _ck_complete_tags "$cur" "$TagDir"
