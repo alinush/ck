@@ -122,8 +122,9 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
             url    = bibent_get_url(bib)
             venue  = bibent_get_venue(bib)
+            has_md = os.path.exists(os.path.join(ck_bib_dir, ck + ".md"))
 
-            ck_tuples.append((ck, author, title, year, date, url, venue))
+            ck_tuples.append((ck, author, title, year, date, url, venue, has_md))
 
         except FileNotFoundError:
             click.secho(ck + ": Missing BibTeX file in directory " + ck_bib_dir, fg="red", err=True)
@@ -135,9 +136,11 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
     return ck_tuples
 
 def print_ck_tuples(cks, tags, include_url=False, include_venue=True, include_ck=True, include_dateadded=True, include_tags=True):
-    for (ck, author, title, year, date, url, venue) in cks:
+    for (ck, author, title, year, date, url, venue, has_md) in cks:
         if include_ck:
             click.secho(ck, fg='blue', nl=False)
+            if has_md:
+                click.secho(" + .md", fg=208, nl=False)
             click.echo(", ", nl=False)
 
         click.secho(title, fg='green', nl=False)
