@@ -6,7 +6,18 @@
 _ck_complete_tags() {
     # Hierarchical tag completion: lists immediate children of the tag prefix in cur
     # Appends / to tags that have subtags so the user can keep tabbing deeper
+    # Handles comma-separated tags by completing only the part after the last comma
     local cur="$1" TagDir="$2"
+    local orig_cur="$cur"
+
+    # If cur has a comma, the active tag is everything after the last comma.
+    # Preserve the prefix (including the trailing comma) so we can prepend it back.
+    local comma_prefix=""
+    if [[ "$cur" == *,* ]]; then
+        comma_prefix="${cur%,*},"
+        cur="${cur##*,}"
+    fi
+
     local tag_parent="${cur%/*}"
     local search_dir="$TagDir"
     local prefix=""
@@ -30,18 +41,19 @@ _ck_complete_tags() {
                 fi
             done
             if $has_subtags; then
-                candidates+=("${prefix}${name}/")
+                candidates+=("${comma_prefix}${prefix}${name}/")
             else
-                candidates+=("${prefix}${name}")
+                candidates+=("${comma_prefix}${prefix}${name}")
             fi
         done
         if [ ${#candidates[@]} -gt 0 ]; then
-            COMPREPLY=($(compgen -W "$(printf '%s ' "${candidates[@]}")" -- "${cur}"))
+            COMPREPLY=($(compgen -W "$(printf '%s ' "${candidates[@]}")" -- "${orig_cur}"))
             # If the only match ends with /, also include its children so bash
             # doesn't append a space and lets the user keep tabbing deeper
             if [ ${#COMPREPLY[@]} -eq 1 ] && [[ "${COMPREPLY[0]}" == */ ]]; then
                 local match="${COMPREPLY[0]}"
-                local match_dir="$TagDir/${match%/}"
+                local match_tag="${match#$comma_prefix}"
+                local match_dir="$TagDir/${match_tag%/}"
                 for d in "$match_dir"/*/; do
                     [ -d "$d" ] || continue
                     local cname=$(basename "$d")

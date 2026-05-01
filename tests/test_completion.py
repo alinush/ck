@@ -192,6 +192,52 @@ class TestCkCompleteTagsHelper:
         # Children should also be present
         assert "sigs/bls" in replies
 
+    def test_comma_separated_top_level(self, completion_dirs):
+        """Comma is a separator within a single arg: complete the part after
+        the last comma while preserving the prefix."""
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "tag", "KZG10", "commitments,sig"],
+            comp_cword=3,
+        )
+        assert "commitments,sigs/" in replies
+        assert "commitments,commitments" not in replies
+
+    def test_comma_separated_subtag(self, completion_dirs):
+        """Comma followed by a hierarchical tag prefix completes children."""
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "tag", "KZG10", "commitments,sigs/"],
+            comp_cword=3,
+        )
+        assert "commitments,sigs/bls" in replies
+        assert "commitments,sigs/schnorr" in replies
+        assert "commitments,sigs/threshold/" in replies
+
+    def test_comma_separated_unique_subtag_expands_children(self, completion_dirs):
+        """When the comma-suffix uniquely matches a tag with children, expand
+        children so bash keeps tabbing deeper (no trailing space)."""
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "tag", "KZG10", "commitments,sigs/thr"],
+            comp_cword=3,
+        )
+        assert "commitments,sigs/threshold/" in replies
+        assert "commitments,sigs/threshold/frost" in replies
+
+    def test_multiple_commas(self, completion_dirs):
+        """Only the part after the LAST comma should be completed."""
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "tag", "KZG10", "sigs/bls,commitments,enc"],
+            comp_cword=3,
+        )
+        assert "sigs/bls,commitments,encryption/" in replies
+
 
 class TestTagCommand:
     def test_first_arg_completes_cks(self, completion_dirs):
