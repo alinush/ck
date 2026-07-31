@@ -3,6 +3,7 @@
 import glob
 import shutil
 import subprocess
+import time
 from urllib.request import Request
 
 import pdfkit
@@ -111,6 +112,9 @@ def ck(ctx, config_file, verbose):
         ctx.obj['TextEditor']                 = config['default']['TextEditor']
         ctx.obj['MarkdownEditor']             = config['default']['MarkdownEditor']
         ctx.obj['TagAfterCkAddConflict']      = config['default']['TagAfterCkAddConflict'].lower() == "true"
+        # Where the user's browser saves downloads; used by 'ck add' to auto-file PDFs that
+        # had to be downloaded manually (e.g., when Cloudflare blocks the automatic download).
+        ctx.obj['DownloadsDir']               = config['default'].get('DownloadsDir', os.path.join(os.path.expanduser('~'), 'Downloads'))
         ctx.obj['tags']                       = find_tagged_pdfs(ctx.obj['TagDir'], verbose)
 
         # Maps domain of website to function that handles downloading paper's PDF & BibTeX from it
@@ -317,6 +321,9 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     ck_bib_dir       = ctx.obj['BibDir']
     ck_tag_dir       = ctx.obj['TagDir']
 
+    # PDFs the browser downloads after this moment are candidates for auto-filing below
+    started_at = time.time()
+
     # Check if the argument is a local PDF file path
     is_local_file = os.path.isfile(url)
 
@@ -440,15 +447,36 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         error_citation_exists(ctx, citation_key)
         sys.exit(1)
     
-    # If the PDF download failed (e.g., Cloudflare 403), wait for the user to
-    # manually save the PDF directly to the destination path.
+    # If the PDF download failed (e.g., Cloudflare 403), the handler opened the PDF URL in
+    # the user's browser. Watch for the PDF they download and auto-file it under the CK.
     if pdf_data is None:
-        click.echo("Save the PDF from your browser directly to: ", nl=False)
-        click.secho(destpdffile, fg="blue")
-        click.pause("Press any key when done...")
+        downloads_dir = ctx.obj['DownloadsDir']
+        click.echo("Once the PDF is up in your browser, download it.")
+        click.echo("Waiting for it to appear in " + downloads_dir + " (Ctrl-C to save it manually instead)...")
+
+        pdf_path = None
+        try:
+            pdf_path = wait_for_browser_pdf(downloads_dir, destpdffile, started_at)
+        except KeyboardInterrupt:
+            click.echo()
+
+        if pdf_path == destpdffile:
+            click.echo("Found the PDF saved directly at its destination.")
+        elif pdf_path is not None:
+            click.echo("Found downloaded PDF: ", nl=False)
+            click.secho(pdf_path, fg="green")
+            if click.confirm("File it as " + destpdffile + "?", default=True):
+                shutil.move(pdf_path, destpdffile)
+
+        # Fall back to a manual save if the watcher timed out, was interrupted, or the
+        # user declined to file the PDF it found.
         if not os.path.exists(destpdffile):
-            print_error("PDF not found at " + destpdffile)
-            sys.exit(1)
+            click.echo("Save the PDF from your browser directly to: ", nl=False)
+            click.secho(destpdffile, fg="blue")
+            click.pause("Press any key when done...")
+            if not os.path.exists(destpdffile):
+                print_error("PDF not found at " + destpdffile)
+                sys.exit(1)
     else:
         # Write the PDF file
         with open(destpdffile, 'wb') as fout:

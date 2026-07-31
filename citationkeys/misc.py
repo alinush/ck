@@ -7,6 +7,7 @@ try:
 except ImportError:
     import readline
 import sys
+import time
 import traceback
 from collections import defaultdict
 from datetime import datetime
@@ -21,6 +22,42 @@ from .print import print_error
 def get_terminal_width():
     rows, columns = os.popen('stty size', 'r').read().split()
     return columns
+
+def wait_for_browser_pdf(downloads_dir, destpdffile, newer_than, timeout=300, poll_interval=0.5):
+    """Waits for the user's browser to finish downloading a PDF and returns its path.
+
+    Returns destpdffile if the user saved the PDF directly to its final location,
+    the path of the newest .pdf in downloads_dir modified after 'newer_than' otherwise,
+    or None if 'timeout' seconds elapse without either appearing.
+
+    Browsers download to a partial file (.crdownload/.part/.download) and atomically
+    rename it to the final .pdf name, so any nonzero-size .pdf we see is complete.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if os.path.exists(destpdffile):
+            return destpdffile
+
+        candidates = []
+        if os.path.isdir(downloads_dir):
+            for name in os.listdir(downloads_dir):
+                if not name.lower().endswith('.pdf'):
+                    continue
+                path = os.path.join(downloads_dir, name)
+                try:
+                    st = os.stat(path)
+                except OSError:
+                    continue
+                if st.st_mtime >= newer_than and st.st_size > 0:
+                    candidates.append((st.st_mtime, path))
+
+        if candidates:
+            return max(candidates)[1]
+
+        time.sleep(poll_interval)
+
+    return None
+
 
 def notimplemented():
     print()

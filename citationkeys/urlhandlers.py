@@ -229,10 +229,8 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
     pdf_data = None
     bibtex = None
 
-    if pdf_downl:
-        pdfurl = urlunparse(parsed_url) + ".pdf"
-        pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
-
+    # NOTE: BibTeX is scraped first (from the already-fetched abstract page, which Cloudflare
+    # does not challenge), while the PDF download may require manual intervention.
     if bib_downl:
         elem = soup.find("pre", {"id": "bibtex"})
         bibtex = elem.text.strip()
@@ -245,6 +243,18 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
         # bibsoup = BeautifulSoup(html, parser)
         # bibtex = bibsoup.find('pre').text.strip()
         # bibtex = bibtex.encode('utf-8')
+
+    if pdf_downl:
+        pdfurl = urlunparse(parsed_url) + ".pdf"
+        try:
+            pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                click.echo("IACR ePrint serves PDFs behind Cloudflare, which blocked the automatic download.")
+                click.echo("Opening the PDF URL in your browser...")
+                click.launch(pdfurl)
+            else:
+                raise
 
     return bibtex, pdf_data
 
