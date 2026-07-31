@@ -3,7 +3,7 @@ pyperclip
 beautifulsoup4
 appdirs
 fake-useragent
-bibtexparser
+bibtexparser<2  # code uses the v1 API (bwriter, customization, latexenc)
 lxml
 pdfkit
 weasyprint
