@@ -93,15 +93,23 @@ class TestIACR:
         assert bib_data is not None
         assert b"@" in bib_data
 
-    def test_download_pdf(self, opener, user_agent):
+    def test_download_pdf(self, opener, user_agent, monkeypatch):
+        """PDFs are behind a Cloudflare challenge (since ~2026). The handler must either
+        download the PDF (if Cloudflare lets the request through) or fall back to opening
+        the PDF URL in the browser and return no PDF data — never raise."""
+        launched = []
+        monkeypatch.setattr("citationkeys.urlhandlers.click.launch", lambda url: launched.append(url))
+
         is_handled, _, pdf_data = handle_url(
             "https://eprint.iacr.org/2018/721",
             HANDLERS, opener, user_agent, 0,
             bib_downl=False, pdf_downl=True,
         )
         assert is_handled is True
-        assert pdf_data is not None
-        assert pdf_data[:5] == b"%PDF-"
+        if pdf_data is not None:
+            assert pdf_data[:5] == b"%PDF-"
+        else:
+            assert launched == ["https://eprint.iacr.org/2018/721.pdf"]
 
     def test_pdf_url_stripped(self, opener, user_agent):
         """URLs ending in .pdf should be handled by stripping the suffix."""
