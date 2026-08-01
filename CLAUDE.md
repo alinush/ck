@@ -5,10 +5,10 @@
 After making any code changes, always run the tests:
 
 ```bash
-source venv/bin/activate && python -m pytest -v
+uv run --with-requirements requirements.txt python -m pytest -v
 ```
 
-To skip slow network tests: `python -m pytest -m "not integration" -v`
+To skip slow network tests: `uv run --with-requirements requirements.txt python -m pytest -m "not integration" -v`
 
 ## Bash completion
 
