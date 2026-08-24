@@ -65,9 +65,11 @@ def find_tagged_pdfs_helper(root_tag_dir, tag_subdir, pdfs, verbosity):
     for relpath in os.listdir(tag_subdir):
         fullpath = os.path.join(tag_subdir, relpath)
 
-        if os.path.isdir(fullpath):
-            find_tagged_pdfs_helper(root_tag_dir, fullpath, pdfs, verbosity)
-        elif os.path.islink(fullpath):
+        # Tagged PDFs are always symlinks and subtag directories are always real
+        # directories (see ck_tag_cmd), so check islink() first: os.path.isdir()
+        # follows symlinks, which would stat() through into BibDir for every tagged
+        # PDF and is slow on network-synced directories like Dropbox.
+        if os.path.islink(fullpath):
             citation_key, extension = os.path.splitext(relpath)
             tagname = os.path.relpath(os.path.dirname(fullpath), root_tag_dir)
 
@@ -80,6 +82,8 @@ def find_tagged_pdfs_helper(root_tag_dir, tag_subdir, pdfs, verbosity):
                 if citation_key not in pdfs:
                     pdfs[citation_key] = []
                 pdfs[citation_key].append(tagname)
+        elif os.path.isdir(fullpath):
+            find_tagged_pdfs_helper(root_tag_dir, fullpath, pdfs, verbosity)
 
 
 # @param    tagged_cks  a list of CKs that are tagged already

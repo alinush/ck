@@ -88,6 +88,13 @@ def ck(ctx, config_file, verbose):
 
     # read configuration
     if not os.path.exists(config_file):
+        # Let 'ck config' handle bootstrapping a missing config file from the template
+        resolved_cmd = ck.get_command(ctx, ctx.invoked_subcommand) if ctx.invoked_subcommand else None
+        if resolved_cmd is not None and resolved_cmd.name == 'config':
+            ctx.ensure_object(dict)
+            ctx.obj['verbosity'] = verbose
+            return
+
         print_error("CK config file does not exist: " + config_file)
         sys.exit(1)
 
@@ -488,13 +495,19 @@ def ck_config_cmd(ctx, edit):
     """Lets you edit the config file and prints it at the end."""
 
     ctx.ensure_object(dict)
-    ck_text_editor = ctx.obj['TextEditor']
 
     config_file = os.path.join(appdirs.user_config_dir('ck'), 'ck.config')
 
-    if not edit:
+    if not os.path.exists(config_file):
+        template_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ck-sample.config')
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+        shutil.copyfile(template_file, config_file)
+        click.echo("Created new CK config file from template: " + config_file)
+        os.system("vim \"" + config_file + "\"")
+    elif not edit:
         print(config_file)
     else:
+        ck_text_editor = ctx.obj['TextEditor']
         os.system(ck_text_editor + " \"" + config_file + "\"")
 
 @ck.command('untag')

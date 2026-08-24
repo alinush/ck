@@ -97,6 +97,11 @@ def cks_from_tags(ck_tag_dir, tags, recursive=True):
 def cks_to_tuples(ck_bib_dir, cks, verbosity):
     ck_tuples = []
 
+    # Listing the directory once and checking membership in-memory avoids doing
+    # a per-CK os.path.exists() stat call, which is slow on network-synced
+    # directories like Dropbox.
+    bib_dir_files = set(os.listdir(ck_bib_dir))
+
     for ck in cks:
         bibfile = os.path.join(ck_bib_dir, ck + ".bib")
         if verbosity > 1:
@@ -122,7 +127,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
             url    = bibent_get_url(bib)
             venue  = bibent_get_venue(bib)
-            has_md = os.path.exists(os.path.join(ck_bib_dir, ck + ".md"))
+            has_md = (ck + ".md") in bib_dir_files
 
             ck_tuples.append((ck, author, title, year, date, url, venue, has_md))
 
