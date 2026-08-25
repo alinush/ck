@@ -136,6 +136,7 @@ def ck(ctx, config_file, verbose):
             "ieeexplore.ieee.org"   : ieeexplore_handler,
             "www.sciencedirect.com" : sciencedirect_handler,
             "sciencedirect.com"     : sciencedirect_handler,
+            "www.computer.org"      : csdl_handler,
         }
     except:
         print_error("Config file '" + config_file + "' is in bad shape. Please edit manually!")
@@ -863,12 +864,10 @@ def ck_open_cmd(ctx, filename):
     )
 @click.option(
     '-m', '--markdown', 'fmt', flag_value='markdown',
-    default=False,
     help='Output as a Markdown citation'
     )
 @click.option(
     '-t', '--text', 'fmt', flag_value='text',
-    default=False,
     help='Output as a plain text citation'
     )
 @click.pass_context
@@ -911,7 +910,7 @@ def ck_bib_cmd(ctx, citation_key, clipboard, fmt):
         # For plain text bib's, we print exactly what we copy!
         to_print = to_copy
     else:
-        print_error("Code for parsing the citation format is wrong.")
+        print_error("Code for parsing the citation format is wrong (fmt = " + fmt + ").")
         sys.exit(1)
 
     click.secho(to_print, fg='cyan')
@@ -1198,12 +1197,10 @@ def ck_list_cmd(ctx, tag_names_or_subdirs, anonymize, recursive, ck_only, sort, 
     )
 @click.option(
     '-m', '--markdown', 'fmt', flag_value='markdown',
-    default=False,
     help='Outputs bibliography in Markdown format'
     )
 @click.option(
     '-t', '--text', 'fmt', flag_value='text',
-    default=False,
     help='Outputs bibliography in plain text format'
     )
 @click.option(

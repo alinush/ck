@@ -44,6 +44,15 @@ def strip_accents(s):
 def new_bibtex_parser():
     parser = bibtexparser.bparser.BibTexParser(interpolate_strings=True, common_strings=True)
 
+    # NOTE(Alin): common_strings=True only defines the 3-letter month abbreviations (jan, feb, ...) as
+    # BibTeX string macros. Some sites (e.g., Crossref's doi.org BibTeX for ACM/IEEE DOIs) instead emit
+    # unquoted full month names, like 'month=July', which then fail to parse with an UndefinedString error.
+    parser.bib_database.strings.update({
+        'january': 'January', 'february': 'February', 'march': 'March', 'april': 'April',
+        'june': 'June', 'july': 'July', 'august': 'August', 'september': 'September',
+        'october': 'October', 'november': 'November', 'december': 'December',
+    })
+
     # TODO(Alin): For now, this serves no purpose, but this is where we might want to canonicalize the BibTeX
     def customizations(record):
         """Use some functions delivered by the library

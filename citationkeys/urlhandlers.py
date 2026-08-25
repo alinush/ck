@@ -18,6 +18,7 @@ import bs4
 import click
 import configparser
 import datetime
+import json
 import os
 import pyperclip
 import smtplib
@@ -118,6 +119,7 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     no_index_html = set()
     # no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
     no_index_html.add("dl.acm.org")  # Cloudflare blocks urllib requests; DOI+PDF URLs can be derived from the URL
+    no_index_html.add("www.computer.org")  # Angular SPA serves an empty shell; we use its GraphQL API instead
 
     if domain in handlers:
         handler = handlers[domain]
@@ -137,6 +139,83 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
         return True, *handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl)
     else:
         return False, None, None
+
+
+def csdl_query_graphql(opener, url_prefix, user_agent, verbosity, query, variables):
+    graphql_url = url_prefix + "/csdl/api/v1/graphql"
+    body = json.dumps({"query": query, "variables": variables}).encode('utf-8')
+    req = Request(graphql_url, data=body, headers={"Content-Type": "application/json", "User-Agent": user_agent})
+
+    if verbosity > 0:
+        print("Querying CSDL GraphQL API:", graphql_url, variables)
+
+    resp = opener.open(req)
+    result = json.loads(resp.read())
+
+    if verbosity > 2:
+        print("CSDL GraphQL response:", result)
+
+    return result.get("data")
+
+
+# e.g., https://www.computer.org/csdl/proceedings-article/sp/2025/223600a046/21B7QyuIMak
+#
+# CSDL (IEEE Computer Society Digital Library) is an Angular single-page app: the server sends
+# back an empty HTML shell, so there is no page to scrape with BeautifulSoup. Instead, we query
+# CSDL's own (public, introspectable) GraphQL API for the article's metadata, most importantly its DOI.
+def csdl_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    article_id = parsed_url.path.rstrip('/').split('/')[-1]
+
+    if verbosity > 0:
+        print("CSDL article ID:", article_id)
+
+    # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
+    pdf_data = None
+    bibtex = None
+
+    data = csdl_query_graphql(
+        opener, url_prefix, user_agent, verbosity,
+        "query($id: String!) { articleById(articleId: $id) { doi pubType } }",
+        {"id": article_id})
+
+    article = data.get("articleById") if data else None
+    if article is None:
+        print_error("Could not find a CSDL article with ID '" + article_id + "'.")
+        sys.exit(1)
+
+    if article.get("pubType") != "proceedings":
+        print_error("ck currently only supports CSDL proceedings articles (got pubType = " + str(article.get("pubType")) + ").")
+        sys.exit(1)
+
+    doi = article.get("doi")
+    if doi is None:
+        print_error("CSDL article '" + article_id + "' has no DOI yet.")
+        sys.exit(1)
+
+    if verbosity > 0:
+        print("CSDL paper DOI:", doi)
+
+    if bib_downl:
+        # CSDL itself has no BibTeX export, but these DOIs are registered with Crossref,
+        # so we can get the BibTeX via doi.org content negotiation (same trick as dl.acm.org below).
+        biburl = "https://doi.org/" + doi
+        if verbosity > 0:
+            print("CSDL paper bib URL:", biburl)
+        bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
+
+    if pdf_downl:
+        pdfurl = url_prefix + "/csdl/pds/api/csdl/proceedings/download-article/" + article_id + "/pdf"
+        if verbosity > 0:
+            print("CSDL paper PDF URL:", pdfurl)
+        try:
+            pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+        except (urllib.error.HTTPError, RuntimeError):
+            click.echo("CSDL did not serve the PDF directly (likely paywalled without an institutional login).")
+            click.echo("Opening the PDF URL in your browser...")
+            click.launch(pdfurl)
+
+    return bibtex, pdf_data
 
 
 def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
