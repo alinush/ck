@@ -81,6 +81,30 @@ class TestArxiv:
         assert is_handled is True
         assert bib_data is not None
 
+    def test_pdf_url_format_no_extension(self, opener, user_agent):
+        """/pdf/ URL format without a .pdf extension should work."""
+        is_handled, bib_data, pdf_data = handle_url(
+            "https://arxiv.org/pdf/2403.06634",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert bib_data is not None
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
+
+    def test_pdf_url_format_with_extension(self, opener, user_agent):
+        """/pdf/ URL format with a .pdf extension should work."""
+        is_handled, bib_data, pdf_data = handle_url(
+            "https://arxiv.org/pdf/2403.06634.pdf",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert bib_data is not None
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
+
 
 class TestIACR:
     def test_download_bib(self, opener, user_agent):

@@ -423,9 +423,11 @@ def springerlink_handler(opener, soup, parsed_url, parser, user_agent, verbosity
 # https://arxiv.org/pdf/XXXX.XXXX.pdf
 # https://arxiv.org/abs/XXXX.XXXX
 def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
-    if '.pdf' in parsed_url.path:
-        paper_id = parsed_url.path[len('/pdf/'):-len('.pdf')]
-    elif '/abs' in parsed_url.path:
+    if parsed_url.path.startswith('/pdf/'):
+        paper_id = parsed_url.path[len('/pdf/'):]
+        if paper_id.endswith('.pdf'):
+            paper_id = paper_id[:-len('.pdf')]
+    elif parsed_url.path.startswith('/abs/'):
         paper_id = parsed_url.path[len('/abs/'):]
     else:
         assert (False)  # not implemented yet
