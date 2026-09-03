@@ -994,8 +994,13 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
     default=False,
     help='Enables case-sensitive search.'
     )
+@click.option(
+    '-s', '--sort',
+    default='year',
+    help='Sorts either by CK, title, author, year, date-added, or venue'
+    )
 @click.pass_context
-def ck_search_cmd(ctx, query, case_sensitive):
+def ck_search_cmd(ctx, query, case_sensitive, sort):
     """Searches all .bib files for the specified text."""
 
     ctx.ensure_object(dict)
@@ -1025,8 +1030,24 @@ def ck_search_cmd(ctx, query, case_sensitive):
 
         ck_tuples = cks_to_tuples(ck_bib_dir, cks, verbosity)
 
-        # NOTE: Currently sorts alphabetically by CK
-        sorted_cks = sorted(ck_tuples, key=lambda item: item[0])
+        if sort.lower() == "ck":
+            sort_idx = 0
+        elif sort.lower() == "author":
+            sort_idx = 1
+        elif sort.lower() == "title":
+            sort_idx = 2
+        elif sort.lower() == "year":
+            sort_idx = 3
+        elif sort.lower() == "date-added":
+            sort_idx = 4
+        elif sort.lower() == "venue":
+            sort_idx = 6
+        else:
+            print_warning("Unknown sorting index ('" + sort + "'), defaulting to 'year'")
+            sort = 'year'
+            sort_idx = 3 # year
+
+        sorted_cks = sorted(ck_tuples, key=lambda item: item[sort_idx])
 
         print_ck_tuples(sorted_cks, ck_tags, include_url, include_venue)
     else:
