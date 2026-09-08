@@ -137,6 +137,7 @@ def ck(ctx, config_file, verbose):
             "www.sciencedirect.com" : sciencedirect_handler,
             "sciencedirect.com"     : sciencedirect_handler,
             "www.computer.org"      : csdl_handler,
+            "www.usenix.org"        : usenix_handler,
         }
     except:
         print_error("Config file '" + config_file + "' is in bad shape. Please edit manually!")

@@ -21,6 +21,7 @@ from citationkeys.urlhandlers import (
     iacreprint_handler,
     ieeexplore_handler,
     springerlink_handler,
+    usenix_handler,
 )
 
 # All URL handler tests are integration tests (they hit the network)
@@ -35,6 +36,7 @@ HANDLERS = {
     "dl.acm.org": dlacm_handler,
     "epubs.siam.org": epubssiam_handler,
     "ieeexplore.ieee.org": ieeexplore_handler,
+    "www.usenix.org": usenix_handler,
 }
 
 
@@ -149,6 +151,61 @@ class TestACM:
         assert bib_data is not None
         bib_str = bib_data.decode("utf-8")
         assert "@" in bib_str
+
+    def test_download_bib_unregistered_doi_skipped_exits_cleanly(self, opener, user_agent, monkeypatch):
+        # 10.5555-prefixed "Guide Proceedings" DOIs (e.g. USENIX Security papers
+        # listed on dl.acm.org) are frequently never registered with Crossref, so
+        # doi.org 404s on the content-negotiation trick. This must not surface as
+        # an uncaught HTTPError/traceback to the user; declining the USENIX-URL
+        # fallback prompt should just exit(1) cleanly.
+        monkeypatch.setattr("citationkeys.urlhandlers.click.prompt", lambda *a, **k: "")
+        with pytest.raises(SystemExit) as exc_info:
+            handle_url(
+                "https://dl.acm.org/doi/10.5555/3698900.3698984",
+                HANDLERS, opener, user_agent, 0,
+                bib_downl=True, pdf_downl=False,
+            )
+        assert exc_info.value.code == 1
+
+    def test_download_bib_unregistered_doi_falls_back_to_usenix(self, opener, user_agent, monkeypatch):
+        # Same unregistered DOI as above, but this time supply the paper's USENIX
+        # URL when prompted, and expect ck to scrape the official BibTeX from there.
+        usenix_url = "https://www.usenix.org/conference/usenixsecurity24/presentation/bailey"
+        monkeypatch.setattr("citationkeys.urlhandlers.click.prompt", lambda *a, **k: usenix_url)
+        is_handled, bib_data, _ = handle_url(
+            "https://dl.acm.org/doi/10.5555/3698900.3698984",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=False,
+        )
+        assert is_handled is True
+        assert bib_data is not None
+        bib_str = bib_data.decode("utf-8")
+        assert "@inproceedings" in bib_str
+        assert "Bailey" in bib_str
+
+
+class TestUSENIX:
+    def test_download_bib(self, opener, user_agent):
+        is_handled, bib_data, _ = handle_url(
+            "https://www.usenix.org/conference/usenixsecurity24/presentation/bailey",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=False,
+        )
+        assert is_handled is True
+        assert bib_data is not None
+        bib_str = bib_data.decode("utf-8")
+        assert "@inproceedings" in bib_str
+        assert "Bailey" in bib_str
+
+    def test_download_pdf(self, opener, user_agent):
+        is_handled, _, pdf_data = handle_url(
+            "https://www.usenix.org/conference/usenixsecurity24/presentation/bailey",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=False, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
 
 
 class TestSpringerLink:

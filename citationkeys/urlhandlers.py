@@ -241,7 +241,42 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
         biburl = "http://doi.org/" + doi
         if verbosity > 0:
             print("ACM DL paper bib URL:", biburl)
-        bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
+        try:
+            bibtex = get_url(opener, biburl, verbosity, user_agent, None, {"Accept": "application/x-bibtex"})
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # DOIs under the 10.5555 prefix are ACM's "Guide Proceedings" entries for
+                # conferences ACM doesn't own (e.g. USENIX Security, OSDI, NSDI). These are
+                # often never registered with Crossref, so doi.org has no record of them and
+                # this content-negotiation trick 404s. dl.acm.org itself (including its
+                # "Export Citation" endpoint) is behind a Cloudflare JS challenge that we
+                # can't solve with plain HTTP requests either, so there's no way to auto-fetch
+                # the BibTeX from ACM DL directly in this case.
+                print_error("DOI '" + doi + "' was not found on doi.org (HTTP " + str(e.code) + ").")
+                click.echo("This is common for dl.acm.org 'Guide Proceedings' entries (DOI prefix 10.5555,")
+                click.echo("used for non-ACM-owned conferences like USENIX Security/OSDI/NSDI): these DOIs")
+                click.echo("are often never registered with Crossref, so ck cannot auto-fetch the BibTeX.")
+                click.echo()
+
+                usenix_url = click.prompt(
+                    "If this paper was published at USENIX (Security/NSDI/OSDI/ATC/FAST/SOUPS/...),\n"
+                    "paste its usenix.org presentation URL to fetch the BibTeX from there instead\n"
+                    "(e.g. https://www.usenix.org/conference/usenixsecurity24/presentation/bailey),\n"
+                    "or leave blank to skip",
+                    default="", show_default=False,
+                )
+
+                if not usenix_url:
+                    sys.exit(1)
+
+                usenix_html = get_url(opener, usenix_url, verbosity, user_agent)
+                usenix_soup = BeautifulSoup(usenix_html, parser)
+                bibtex = usenix_extract_bibtex(usenix_soup)
+                if bibtex is None:
+                    print_error("Could not find an embedded BibTeX entry on that USENIX page.")
+                    sys.exit(1)
+            else:
+                raise
 
         if verbosity > 1:
             # Assuming UTF8 encoding. Will pay for this later, rest assured.
@@ -263,6 +298,70 @@ def dlacm_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
                 click.launch(pdfurl)
             else:
                 raise
+
+    return bibtex, pdf_data
+
+
+def usenix_extract_bibtex(soup):
+    """Pulls the official BibTeX that USENIX embeds inline in its paper landing
+       pages (e.g. https://www.usenix.org/conference/usenixsecurity24/presentation/bailey),
+       under the 'BibTeX' accordion. Returns None if the page has no such entry."""
+    div = soup.select_one(".bibtex-accordion-text-entry")
+    if div is None:
+        return None
+
+    for br in div.find_all("br"):
+        br.replace_with("\n")
+
+    lines = [line.strip() for line in div.get_text().splitlines() if line.strip()]
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def usenix_extract_pdf_url(soup, url_prefix):
+    # Prefer the final/camera-ready paper PDF; fall back to the prepublication one.
+    elem = soup.select_one(".field-name-field-final-paper-pdf a[href]")
+    if elem is None:
+        elem = soup.select_one(".field-name-field-presentation-pdf a[href]")
+    if elem is None:
+        return None
+
+    href = elem.get("href")
+    return href if href.startswith("http") else url_prefix + href
+
+
+# e.g., https://www.usenix.org/conference/usenixsecurity24/presentation/bailey
+#
+# USENIX (Security, NSDI, OSDI, ATC, FAST, SOUPS, ...) isn't behind Cloudflare like
+# dl.acm.org is, and its paper pages embed official BibTeX directly in the HTML, so
+# we just scrape it instead of relying on doi.org (many USENIX papers, cataloged by
+# ACM DL under the 10.5555 'Guide Proceedings' DOI prefix, are never registered with
+# Crossref, so the doi.org trick used in dlacm_handler() doesn't work for them; see
+# the fallback prompt there).
+def usenix_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+
+    # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
+    pdf_data = None
+    bibtex = None
+
+    if bib_downl:
+        bibtex = usenix_extract_bibtex(soup)
+        if bibtex is None:
+            print_error("Could not find an embedded BibTeX entry on the USENIX page.")
+            sys.exit(1)
+
+        if verbosity > 1:
+            print("USENIX paper BibTeX: ", bibtex.decode("utf-8"))
+
+    if pdf_downl:
+        pdfurl = usenix_extract_pdf_url(soup, url_prefix)
+        if pdfurl is None:
+            print_error("Could not find a paper PDF link on the USENIX page.")
+            sys.exit(1)
+
+        if verbosity > 0:
+            print("USENIX paper PDF URL:", pdfurl)
+        pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
 
     return bibtex, pdf_data
 
