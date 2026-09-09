@@ -7,8 +7,9 @@ from email.mime.text import MIMEText
 from fake_useragent import UserAgent
 from http.cookiejar import CookieJar
 from pprint import pprint
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlunparse
 from urllib.request import Request
+from .bib import bibent_from_url, bibent_to_bibtex
 from .misc import *
 
 # NOTE: Alphabetical order please
@@ -120,12 +121,19 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     # no_index_html.add("eprint.iacr.org") # actually, we need the HTML now (May, 2022)
     no_index_html.add("dl.acm.org")  # Cloudflare blocks urllib requests; DOI+PDF URLs can be derived from the URL
     no_index_html.add("www.computer.org")  # Angular SPA serves an empty shell; we use its GraphQL API instead
+    no_index_html.add("github.com")  # the .pdf and API URLs are derived directly from the URL
+
+    # These sites serve a paper's landing page and its PDF at the same path, so a
+    # trailing .pdf is just noise for their handlers. (Elsewhere it can be
+    # meaningful: e.g., it is part of a GitHub-hosted file's name.)
+    strip_pdf_suffix = set()
+    strip_pdf_suffix.add("eprint.iacr.org")
+    strip_pdf_suffix.add("arxiv.org")
 
     if domain in handlers:
         handler = handlers[domain]
 
-        # For IACR eprint, we handle links that end with .pdf as if they were normal
-        if url.endswith(".pdf"):
+        if domain in strip_pdf_suffix and url.endswith(".pdf"):
             url = url[:-4]
             parsed_url = urlparse(url)
 
@@ -362,6 +370,84 @@ def usenix_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_
         if verbosity > 0:
             print("USENIX paper PDF URL:", pdfurl)
         pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+
+    return bibtex, pdf_data
+
+
+# Some websites host a paper's PDF but have no BibTeX metadata whatsoever to go
+# with it. Their handlers return a pre-filled BibTeX entry, which 'ck add' and
+# 'ck addbib' must then ask the user to complete in their text editor.
+def url_needs_manual_bib(url):
+    return urlparse(url).netloc in {"github.com"}
+
+
+def github_parse_file_url(parsed_url):
+    """Splits a GitHub URL to a file in a repo, such as
+       https://github.com/initc3/babySNARK/blob/master/babysnark.pdf, into its
+       (owner, repo, branch, filepath) parts. Returns None for any other URL."""
+    parts = parsed_url.path.strip('/').split('/')
+
+    # e.g., ['initc3', 'babySNARK', 'blob', 'master', 'babysnark.pdf']
+    if len(parts) < 5 or parts[2] not in ('blob', 'raw'):
+        return None
+
+    return parts[0], parts[1], parts[3], '/'.join(parts[4:])
+
+
+def github_file_year(opener, user_agent, owner, repo, branch, filepath, verbosity):
+    """Best-effort guess at the paper's year: when its PDF was last committed.
+       Falls back to the current year, since GitHub's API is rate-limited for
+       unauthenticated callers and this is only a starting point for the user."""
+    api_url = "https://api.github.com/repos/" + owner + "/" + repo + "/commits" \
+              "?path=" + quote(filepath) + "&sha=" + quote(branch) + "&per_page=1"
+
+    try:
+        commits = json.loads(get_url(opener, api_url, verbosity, user_agent, "application/json",
+                                     {"Accept": "application/vnd.github+json"}))
+        return commits[0]['commit']['committer']['date'][:len("YYYY")]
+    except Exception:
+        if verbosity > 0:
+            print("Could not get the file's commit date from GitHub's API. Falling back to the current year.")
+        return str(datetime.date.today().year)
+
+
+# e.g., https://github.com/initc3/babySNARK/blob/master/babysnark.pdf
+#
+# GitHub serves such a URL as an HTML file viewer, so we rewrite it to its
+# raw.githubusercontent.com equivalent to get at the actual PDF bytes. A PDF that
+# merely lives in a repo has no BibTeX to download, so we return a pre-filled
+# @misc entry for the user to complete (see url_needs_manual_bib above).
+def github_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
+    parts = github_parse_file_url(parsed_url)
+    if parts is None:
+        print_error("ck only handles GitHub URLs to a file in a repo, e.g., " +
+                    "https://github.com/initc3/babySNARK/blob/master/babysnark.pdf")
+        sys.exit(1)
+
+    owner, repo, branch, filepath = parts
+    if verbosity > 0:
+        print("GitHub repo:", owner + "/" + repo, "(branch " + branch + "), file:", filepath)
+
+    # WARNING: Leave these initialized to None, to handle downloading either .bib or .pdf, but not both.
+    pdf_data = None
+    bibtex = None
+
+    if pdf_downl:
+        pdfurl = "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + \
+                 quote(branch) + "/" + quote(filepath)
+        if verbosity > 0:
+            print("GitHub paper PDF URL:", pdfurl)
+        pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+
+    if bib_downl:
+        # The file name is a decent starting point for the citation key, since the
+        # user cannot be expected to have one in mind for a PDF found on GitHub.
+        stem = os.path.splitext(os.path.basename(filepath))[0]
+        citation_key = ''.join(c for c in stem.lower() if c.isalnum()) or repo.lower()
+
+        bibent = bibent_from_url(citation_key, urlunparse(parsed_url))
+        bibent['year'] = github_file_year(opener, user_agent, owner, repo, branch, filepath, verbosity)
+        bibtex = bibent_to_bibtex(bibent).encode('utf-8')
 
     return bibtex, pdf_data
 

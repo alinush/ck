@@ -8,6 +8,7 @@ Skip with: pytest -m "not integration"
 """
 
 import http.cookiejar
+import urllib.parse
 import urllib.request
 
 import pytest
@@ -18,9 +19,12 @@ from citationkeys.urlhandlers import (
     arxiv_handler,
     dlacm_handler,
     epubssiam_handler,
+    github_handler,
+    github_parse_file_url,
     iacreprint_handler,
     ieeexplore_handler,
     springerlink_handler,
+    url_needs_manual_bib,
     usenix_handler,
 )
 
@@ -37,7 +41,10 @@ HANDLERS = {
     "epubs.siam.org": epubssiam_handler,
     "ieeexplore.ieee.org": ieeexplore_handler,
     "www.usenix.org": usenix_handler,
+    "github.com": github_handler,
 }
+
+BABYSNARK_URL = "https://github.com/initc3/babySNARK/blob/master/babysnark.pdf"
 
 
 @pytest.fixture(scope="module")
@@ -254,6 +261,57 @@ class TestIEEE:
         # IEEE serves bibtex with <br> tags that get cleaned
         bib_str = bib_data.replace(b"<br>", b"").decode("utf-8")
         assert "@" in bib_str
+
+
+class TestGitHub:
+    def test_download_pdf(self, opener, user_agent):
+        """The 'blob' HTML viewer URL must be rewritten to the raw file URL."""
+        is_handled, _, pdf_data = handle_url(
+            BABYSNARK_URL,
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=False, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
+
+    def test_prefilled_bib(self, opener, user_agent):
+        """GitHub has no BibTeX, so we pre-fill a @misc entry with the URL and the
+           year the PDF was last committed, for the user to complete."""
+        is_handled, bib_data, _ = handle_url(
+            BABYSNARK_URL,
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=False,
+        )
+        assert is_handled is True
+        bib_str = bib_data.decode("utf-8")
+        assert "@misc{babysnark," in bib_str  # citation key guessed from the file name
+        assert BABYSNARK_URL in bib_str
+        assert "year = {2020}" in bib_str
+
+    def test_needs_manual_bib(self):
+        assert url_needs_manual_bib(BABYSNARK_URL) is True
+        assert url_needs_manual_bib("https://arxiv.org/abs/1906.07221") is False
+
+    def test_parse_file_url(self):
+        assert github_parse_file_url(urllib.parse.urlparse(BABYSNARK_URL)) == \
+            ("initc3", "babySNARK", "master", "babysnark.pdf")
+        # 'raw' URLs and nested file paths work too
+        assert github_parse_file_url(urllib.parse.urlparse(
+            "https://github.com/foo/bar/raw/main/docs/paper.pdf")) == \
+            ("foo", "bar", "main", "docs/paper.pdf")
+        # ...but a URL that does not point to a file in a repo does not
+        assert github_parse_file_url(urllib.parse.urlparse(
+            "https://github.com/initc3/babySNARK")) is None
+
+    def test_non_file_url_exits_cleanly(self, opener, user_agent):
+        with pytest.raises(SystemExit) as exc_info:
+            handle_url(
+                "https://github.com/initc3/babySNARK",
+                HANDLERS, opener, user_agent, 0,
+                bib_downl=True, pdf_downl=True,
+            )
+        assert exc_info.value.code == 1
 
 
 class TestUnhandledUrl:

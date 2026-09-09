@@ -61,6 +61,19 @@ def prompt_for_bibtex(ctx, initial_bibtex):
     return bibtex, bibent
 
 
+def prompt_to_complete_bibtex(ctx, bibtex, citation_key):
+    """Asks the user to complete a pre-filled BibTeX entry, for websites that have
+       no BibTeX of their own to download (e.g., a PDF committed to a GitHub repo)."""
+    click.echo("This website has no BibTeX for the paper, so please fill it in yourself.")
+
+    bibent = bibtex_to_bibent(bibtex.decode())
+    if citation_key:
+        bibent['ID'] = citation_key
+
+    bibtex, _ = prompt_for_bibtex(ctx, bibent_to_bibtex(bibent))
+    return bibtex
+
+
 # @click.group(invoke_without_command=True)
 @click.group(cls=AliasedGroup)
 @click.option(
@@ -138,6 +151,7 @@ def ck(ctx, config_file, verbose):
             "sciencedirect.com"     : sciencedirect_handler,
             "www.computer.org"      : csdl_handler,
             "www.usenix.org"        : usenix_handler,
+            "github.com"            : github_handler,
         }
     except:
         print_error("Config file '" + config_file + "' is in bad shape. Please edit manually!")
@@ -264,7 +278,9 @@ def ck_addbib_cmd(ctx, url, citation_key):
         # Download .bib file only
         is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
 
-        if not is_handled:
+        if is_handled and url_needs_manual_bib(url):
+            bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
+        elif not is_handled:
             click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
             bibtex = download_bib(opener, user_agent, url, verbosity)
 
@@ -362,7 +378,11 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         # Download PDF (and potentially .bib file too, if the URL is handled)
         is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
 
-        if not is_handled:
+        if is_handled and url_needs_manual_bib(url):
+            # e.g., a PDF committed to a GitHub repo: the website has no BibTeX to
+            # download, so the handler only gives us a pre-filled entry to complete.
+            bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
+        elif not is_handled:
             click.echo("No handler for URL was found. This is a PDF-only download, so expecting user to give a citation key.")
 
             # If no citation key is given, fail because we can't check .bib file exists until after
