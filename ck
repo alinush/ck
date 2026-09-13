@@ -235,8 +235,29 @@ def ck_check(ck_bib_dir, ck_tag_dir, verbosity):
     # TODO(Alin): make sure all .bib files have the right CK and have ckdateadded
 
 
-def error_citation_exists(ctx, citation_key):
+def print_conflict(ctx, citation_key, new_bibent=None):
+    """Prints the full description of the paper that already uses 'citation_key' (and, if given,
+       of the paper being added), so the user can tell whether they are the same paper."""
+
+    ctx.ensure_object(dict)
+    verbosity  = ctx.obj['verbosity']
+    ck_bib_dir = ctx.obj['BibDir']
+    ck_tags    = ctx.obj['tags']
+
+    existing_tuples = cks_to_tuples(ck_bib_dir, [ citation_key ], verbosity)
+    if existing_tuples:
+        click.secho("Existing paper: ", fg="yellow", nl=False)
+        print_ck_tuples(existing_tuples, ck_tags, include_url=True)
+
+    if new_bibent is not None:
+        click.secho("New paper:      ", fg="yellow", nl=False)
+        print_ck_tuples([ bibent_to_tuple(new_bibent, citation_key) ], ck_tags, include_url=True, include_ck=False, include_dateadded=False, include_tags=False)
+
+
+def error_citation_exists(ctx, citation_key, new_bibent=None):
     click.secho(style_error("Citation key ") + style_ck(citation_key) + style_error(" already exists. Pick a different one."), err=True)
+
+    print_conflict(ctx, citation_key, new_bibent)
 
     askToTagConflict = ctx.obj['TagAfterCkAddConflict']
 
@@ -255,7 +276,10 @@ def error_citation_exists(ctx, citation_key):
 @click.pass_context
 def ck_addbib_cmd(ctx, url, citation_key):
     """Adds the paper's .bib file to the library, without a PDF file,
-       unless one already exists. Uses the specified citation key, if given and not already used.
+       unless one already exists.
+
+       The first argument can be a URL or a local .bib file path.
+       Uses the specified citation key, if given and not already used.
        Otherwise, uses the DefaultCk policy in the configuration file."""
 
     verbosity        = ctx.obj['verbosity']
@@ -269,26 +293,42 @@ def ck_addbib_cmd(ctx, url, citation_key):
         bibtex, _ = prompt_for_bibtex(ctx, "")
         citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, None, default_ck, verbosity)
     else:
-        # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
-        # websites from borking.
-        cj = CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-        user_agent = UserAgent().random
+        if os.path.isfile(url):
+            # The argument is a local .bib file path, not a URL.
+            click.echo("Local .bib file detected: " + url)
 
-        # Download .bib file only
-        is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+            # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+            bibtex = file_to_bytes(url)
+        else:
+            # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
+            # websites from borking.
+            cj = CookieJar()
+            opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+            user_agent = UserAgent().random
 
-        if is_handled and url_needs_manual_bib(url):
-            bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
-        elif not is_handled:
-            click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
-            bibtex = download_bib(opener, user_agent, url, verbosity)
+            # Download .bib file only
+            is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
 
-        if verbosity > 0:
-            print("Downloaded BibTeX: " + str(bibtex))
+            if is_handled and url_needs_manual_bib(url):
+                bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
+            elif not is_handled:
+                click.echo("No handler for URL was found. Expecting this URL to be to a .bib file...")
+                bibtex = download_bib(opener, user_agent, url, verbosity)
+
+            if verbosity > 0:
+                print("Downloaded BibTeX: " + str(bibtex))
 
         try:
+            num_bibents = len(bibtex_to_bibdb(bibtex.decode()).entries)
+            if num_bibents == 0:
+                print_error("No BibTeX entry found in " + url)
+                sys.exit(1)
+            elif num_bibents > 1:
+                print_warning("Found " + str(num_bibents) + " BibTeX entries; will only add the first one.")
+
             citation_key, bibent = bibtex_to_bibent_with_ck(bibtex, citation_key, default_ck, verbosity)
+        except SystemExit:
+            raise
         except:
             print_error("Could not parse BibTeX! See stack trace below:")
             print()
@@ -299,6 +339,8 @@ def ck_addbib_cmd(ctx, url, citation_key):
     # Write the .bib file
     destbibfile = ck_to_bib(ck_bib_dir, citation_key)
     while os.path.exists(destbibfile):
+        print_conflict(ctx, citation_key, bibent)
+
         prompt = style_warning("Citation key ") + style_ck(citation_key) + style_warning(" already exists, please enter a new one: ")
 
         citation_key = prompt_for_ck(ctx, prompt)
@@ -436,6 +478,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     is_update = False
     if os.path.exists(destpdffile):
         click.secho("Citation key " + citation_key + " already exists.", fg="yellow")
+        print_conflict(ctx, citation_key, bibent)
         if not click.confirm("Would you like to overwrite the PDF (and update the date added)?", default=False):
             sys.exit(1)
 
@@ -466,7 +509,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         # For handled URLs, if we have a .bib file but no PDF, then something went wrong,
         # so we err on the side of displaying an error to the user.
         # For non-handled URLs, a .bib file might be there from a previous 'ck bib' or 'ck open' command.
-        error_citation_exists(ctx, citation_key)
+        error_citation_exists(ctx, citation_key, bibent)
         sys.exit(1)
     
     # If the PDF download failed (e.g., Cloudflare 403), wait for the user to
@@ -968,6 +1011,7 @@ def ck_rename_cmd(ctx, old_citation_key, new_citation_key):
 
     if ck_exists(ck_bib_dir, new_citation_key):
         print_error("New citation key '" + new_citation_key + "' already exists.")
+        print_conflict(ctx, new_citation_key)
         sys.exit(1)
 
     # find all files associated with the CK

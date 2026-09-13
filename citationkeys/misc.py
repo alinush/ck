@@ -93,6 +93,22 @@ def cks_from_tags(ck_tag_dir, tags, recursive=True):
             print_error(style_tags([tag]) + " does not exist as a tag")
     return cks
 
+def bibent_to_tuple(bibent, ck=None, has_md=False):
+    """Turns a bibentry into the tuple expected by print_ck_tuples()"""
+
+    bib = defaultdict(lambda: '', bibent)
+    if ck is None:
+        ck = bib['ID']
+
+    author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
+    title  = bib['title'].strip("{}")
+    year   = bib['year']
+    date   = bib['ckdateadded'] if 'ckdateadded' in bibent else ''
+    url    = bibent_get_url(bib)
+    venue  = bibent_get_venue(bib)
+
+    return (ck, author, title, year, date, url, venue, has_md)
+
 # TODO(Alin): Take flags that decide what to print. For now, "title, authors, year"
 def cks_to_tuples(ck_bib_dir, cks, verbosity):
     ck_tuples = []
@@ -121,15 +137,7 @@ def cks_to_tuples(ck_bib_dir, cks, verbosity):
             if bck != ck:
                 click.echo("\nWARNING: Expected '" + ck + "' CK in " + ck + ".bib file (got '" + bck + "')\n", err=True)
 
-            author = bib['author'].replace('\r', '').replace('\n', ' ').strip()
-            title  = bib['title'].strip("{}")
-            year   = bib['year']
-            date   = bib['ckdateadded'] if 'ckdateadded' in bib else ''
-            url    = bibent_get_url(bib)
-            venue  = bibent_get_venue(bib)
-            has_md = (ck + ".md") in bib_dir_files
-
-            ck_tuples.append((ck, author, title, year, date, url, venue, has_md))
+            ck_tuples.append(bibent_to_tuple(bib, ck, (ck + ".md") in bib_dir_files))
 
         except FileNotFoundError:
             click.secho(ck + ": Missing BibTeX file in directory " + ck_bib_dir, fg="red", err=True)

@@ -415,3 +415,41 @@ class TestAddCommand:
         )
         assert "sigs/" in replies
         assert "commitments" in replies
+
+
+class TestAddbibCommand:
+    """Tests for ck addbib file path completion (local .bib file support)."""
+
+    @pytest.fixture
+    def bib_download_dir(self, tmp_path):
+        """Create a directory with some .bib files and a subdir for testing."""
+        d = tmp_path / "downloads"
+        d.mkdir()
+        (d / "paper1.bib").write_text("@misc{a, title={A}}")
+        (d / "notes.txt").write_text("some notes")
+        sub = d / "subdir"
+        sub.mkdir()
+        (sub / "deep.bib").write_text("@misc{b, title={B}}")
+        return d
+
+    @pytest.mark.parametrize("cmd", ["addb", "addbi", "addbib"])
+    def test_completes_files_in_cwd(self, completion_dirs, bib_download_dir, cmd):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", cmd, ""],
+            comp_cword=2,
+            cwd=str(bib_download_dir),
+        )
+        assert "paper1.bib" in replies
+
+    def test_directories_get_slash(self, completion_dirs, bib_download_dir):
+        tag_dir, bib_dir = completion_dirs
+        replies = run_completion(
+            tag_dir, bib_dir,
+            comp_words=["ck", "addbib", "sub"],
+            comp_cword=2,
+            cwd=str(bib_download_dir),
+        )
+        assert "subdir/" in replies
+        assert "subdir/deep.bib" in replies

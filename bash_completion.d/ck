@@ -94,11 +94,11 @@ _citation_key_ck_completion() {
         local prev="${COMP_WORDS[COMP_CWORD-1]}"
 
         case ${COMP_WORDS[1]} in
-            a|ad|add)
+            a|ad|add|addb|addbi|addbib)
             if [ "$prev" == "-t" ] || [ "$prev" == "--tag" ]; then
                 _ck_complete_tags "$cur" "$TagDir"
             else
-                # Complete with files/directories for local PDF path support
+                # Complete with files/directories for local PDF ('add') and .bib ('addbib') path support
                 local IFS=$'\n'
                 COMPREPLY=($(compgen -f -- "${cur}"))
                 # Expand ~ for file-type checks (bash doesn't expand ~ in variables)
