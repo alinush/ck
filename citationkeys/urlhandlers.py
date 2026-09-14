@@ -11,6 +11,7 @@ from urllib.parse import quote, urlparse, urlunparse
 from urllib.request import Request
 from .bib import bibent_from_url, bibent_to_bibtex
 from .misc import *
+from .print import print_warning
 
 # NOTE: Alphabetical order please
 import appdirs
@@ -25,10 +26,35 @@ import pyperclip
 import smtplib
 import sys
 import tempfile
+import time
 import urllib
 
 
-def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extra_headers={}):
+# Sites like arxiv.org rate-limit bursts of requests from the same IP, answering with a bare HTTP 406
+# (or 429) for the next minute or so. The throttling is short-lived, so back off and try again instead
+# of making the user re-run the command. Other HTTP errors (404s, Cloudflare 403s, ...) are permanent,
+# so they are re-raised right away.
+THROTTLE_HTTP_CODES = [406, 429]
+THROTTLE_RETRY_DELAYS = [2, 5, 10]  # seconds to sleep before each retry
+
+
+def open_with_throttle_retries(opener, req):
+    for delay in THROTTLE_RETRY_DELAYS:
+        try:
+            return opener.open(req)
+        except urllib.error.HTTPError as err:
+            if err.code not in THROTTLE_HTTP_CODES:
+                raise
+
+            print_warning("Got HTTP " + str(err.code) + " from " + str(urlparse(req.full_url).netloc) +
+                          "; it is likely rate-limiting us. Retrying in " + str(delay) + " secs...")
+            time.sleep(delay)
+
+    # Last attempt: let whatever it raises propagate to the caller
+    return opener.open(req)
+
+
+def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extra_headers=None):
     # TODO(Alin): handle 403 error and display HTML returned
     if verbosity > 0:
         print("Downloading URL:", url)
@@ -37,9 +63,11 @@ def get_url(opener, url, verbosity, user_agent, restrict_content_type=None, extr
         raise ValueError("Please specify a user agent")
 
     try:
-        extra_headers['User-Agent'] = user_agent
-        req = Request(url, headers=extra_headers)
-        response = opener.open(req)
+        # NOTE: Copy, so we never mutate the caller's dict (nor a shared default one)
+        headers = dict(extra_headers) if extra_headers else {}
+        headers['User-Agent'] = user_agent
+        req = Request(url, headers=headers)
+        response = open_with_throttle_retries(opener, req)
         content_type = response.getheader("Content-Type")
         # click.echo("Content-Type: " + str(content_type))
         # throw if bad content type
@@ -122,6 +150,11 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
     no_index_html.add("dl.acm.org")  # Cloudflare blocks urllib requests; DOI+PDF URLs can be derived from the URL
     no_index_html.add("www.computer.org")  # Angular SPA serves an empty shell; we use its GraphQL API instead
     no_index_html.add("github.com")  # the .pdf and API URLs are derived directly from the URL
+    # The arXiv handler derives the .bib and .pdf URLs from the paper ID in the URL, so fetching the
+    # page here is pure waste. Worse, for an /pdf/ URL it downloads the whole PDF just to feed it to
+    # the HTML parser, and then downloads it a 2nd time below; that doubles our traffic to arxiv.org,
+    # which makes their edge more likely to throttle us with an HTTP 406.
+    no_index_html.add("arxiv.org")
 
     # These sites serve a paper's landing page and its PDF at the same path, so a
     # trailing .pdf is just noise for their handlers. (Elsewhere it can be
@@ -627,7 +660,8 @@ def arxiv_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_d
     biburl = None
 
     if pdf_downl:
-        pdfurl = 'https://arxiv.org/pdf/%s.pdf' % paper_id
+        # NOTE: No .pdf suffix: arxiv.org 301-redirects /pdf/<id>.pdf to /pdf/<id> these days.
+        pdfurl = 'https://arxiv.org/pdf/%s' % paper_id
 
     if bib_downl:
         biburl = 'https://arxiv.org/bibtex/%s' % paper_id

@@ -307,7 +307,11 @@ def ck_addbib_cmd(ctx, url, citation_key):
             user_agent = UserAgent().random
 
             # Download .bib file only
-            is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+            try:
+                is_handled, bibtex, _ = handle_url(url, handlers, opener, user_agent, verbosity, True, False)
+            except urllib.error.HTTPError as err:
+                print_http_error(err)
+                sys.exit(1)
 
             if is_handled and url_needs_manual_bib(url):
                 bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
@@ -418,7 +422,11 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         user_agent = UserAgent().random
 
         # Download PDF (and potentially .bib file too, if the URL is handled)
-        is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
+        try:
+            is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
+        except urllib.error.HTTPError as err:
+            print_http_error(err)
+            sys.exit(1)
 
         if is_handled and url_needs_manual_bib(url):
             # e.g., a PDF committed to a GitHub repo: the website has no BibTeX to
