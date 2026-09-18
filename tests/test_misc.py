@@ -1,6 +1,7 @@
 """Unit tests for citationkeys/misc.py"""
 
 import os
+import time
 
 import pytest
 
@@ -11,6 +12,7 @@ from citationkeys.misc import (
     list_cks,
     is_cwd_in_tagdir,
     cks_from_tags,
+    wait_for_browser_pdf,
 )
 
 
@@ -88,6 +90,67 @@ class TestListCks:
         cks = list_cks(bib_dir, False)
         assert "X" in cks
         assert len(cks) == 1  # X.slides should not appear
+
+
+class TestWaitForBrowserPdf:
+    @pytest.fixture
+    def dirs(self, tmp_path):
+        downloads = tmp_path / "Downloads"
+        downloads.mkdir()
+        dest = tmp_path / "Papers" / "KZG10.pdf"
+        dest.parent.mkdir()
+        return str(downloads), str(dest)
+
+    def _write(self, path, data=b"%PDF-fake", mtime=None):
+        with open(path, "wb") as f:
+            f.write(data)
+        if mtime is not None:
+            os.utime(path, (mtime, mtime))
+        return str(path)
+
+    def test_finds_fresh_pdf(self, dirs):
+        downloads, dest = dirs
+        pdf = self._write(os.path.join(downloads, "721.pdf"))
+        found = wait_for_browser_pdf(downloads, dest, newer_than=time.time() - 10, timeout=2)
+        assert found == pdf
+
+    def test_ignores_old_pdfs(self, dirs):
+        downloads, dest = dirs
+        self._write(os.path.join(downloads, "old.pdf"), mtime=time.time() - 3600)
+        found = wait_for_browser_pdf(downloads, dest, newer_than=time.time() - 10, timeout=0.2, poll_interval=0.05)
+        assert found is None
+
+    def test_ignores_partial_and_empty_files(self, dirs):
+        downloads, dest = dirs
+        self._write(os.path.join(downloads, "721.pdf.crdownload"))
+        self._write(os.path.join(downloads, "empty.pdf"), data=b"")
+        found = wait_for_browser_pdf(downloads, dest, newer_than=time.time() - 10, timeout=0.2, poll_interval=0.05)
+        assert found is None
+
+    def test_prefers_dest_if_saved_directly(self, dirs):
+        downloads, dest = dirs
+        self._write(os.path.join(downloads, "721.pdf"))
+        self._write(dest)
+        found = wait_for_browser_pdf(downloads, dest, newer_than=time.time() - 10, timeout=2)
+        assert found == dest
+
+    def test_picks_newest_of_multiple(self, dirs):
+        downloads, dest = dirs
+        now = time.time()
+        self._write(os.path.join(downloads, "first.pdf"), mtime=now - 5)
+        newest = self._write(os.path.join(downloads, "second.pdf"), mtime=now)
+        found = wait_for_browser_pdf(downloads, dest, newer_than=now - 10, timeout=2)
+        assert found == newest
+
+    def test_times_out_on_empty_dir(self, dirs):
+        downloads, dest = dirs
+        found = wait_for_browser_pdf(downloads, dest, newer_than=time.time(), timeout=0.2, poll_interval=0.05)
+        assert found is None
+
+    def test_missing_downloads_dir(self, dirs):
+        _, dest = dirs
+        found = wait_for_browser_pdf("/nonexistent/dir", dest, newer_than=time.time(), timeout=0.2, poll_interval=0.05)
+        assert found is None
 
 
 class TestCksFromTags:
