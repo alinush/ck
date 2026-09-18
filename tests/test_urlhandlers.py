@@ -46,6 +46,9 @@ HANDLERS = {
 
 BABYSNARK_URL = "https://github.com/initc3/babySNARK/blob/master/babysnark.pdf"
 
+# A pre-2013 USENIX paper, whose URL points straight at the PDF (no landing page)
+KLEE_LEGACY_URL = "https://www.usenix.org/legacy/event/osdi08/tech/full_papers/cadar/cadar.pdf"
+
 
 @pytest.fixture(scope="module")
 def opener():
@@ -213,6 +216,38 @@ class TestUSENIX:
         assert is_handled is True
         assert pdf_data is not None
         assert pdf_data[:5] == b"%PDF-"
+
+    def test_legacy_download_pdf(self, opener, user_agent):
+        # USENIX's legacy site links straight to the PDF: there is no landing page
+        # to scrape, so the handler must download the URL as-is.
+        is_handled, _, pdf_data = handle_url(
+            KLEE_LEGACY_URL,
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=False, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
+
+    def test_legacy_bib_is_prefilled_entry(self, opener, user_agent):
+        # A legacy page has no BibTeX, so the handler hands back a pre-filled entry
+        # for the user to complete, rather than erroring out.
+        is_handled, bib_data, _ = handle_url(
+            KLEE_LEGACY_URL,
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=True, pdf_downl=False,
+        )
+        assert is_handled is True
+        assert bib_data is not None
+        bib_str = bib_data.decode("utf-8")
+        assert "@misc{cadar," in bib_str  # citation key guessed from the file name
+        assert KLEE_LEGACY_URL in bib_str
+
+    def test_legacy_needs_manual_bib(self):
+        assert url_needs_manual_bib(KLEE_LEGACY_URL) is True
+        # ...but a modern USENIX paper page has BibTeX of its own
+        assert url_needs_manual_bib(
+            "https://www.usenix.org/conference/usenixsecurity24/presentation/bailey") is False
 
 
 class TestSpringerLink:

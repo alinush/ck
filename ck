@@ -391,6 +391,16 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
     # Check if the argument is a local PDF file path
     is_local_file = os.path.isfile(url)
 
+    # The user might already have the paper's .bib file in the library (e.g., they ran
+    # 'ck addbib' earlier, or 'ck bib' created one). Then, there is no point in trying to
+    # download the BibTeX again: we just reuse what's there and only fetch the PDF.
+    # (This also rescues papers whose website has no BibTeX for ck to scrape.)
+    has_bib = citation_key is not None and os.path.exists(ck_to_bib(ck_bib_dir, citation_key))
+    if has_bib:
+        click.echo("Reusing the existing .bib file for ", nl=False)
+        click.secho(citation_key, fg="blue", nl=False)
+        click.echo(": only the PDF will be downloaded.")
+
     if is_local_file:
         click.echo("Local PDF file detected: " + url)
 
@@ -403,17 +413,16 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         bibtex = None
 
         # If there's no .bib file for the user's citation key, let them edit one manually.
-        bibpath_tmp = ck_to_bib(ck_bib_dir, citation_key)
-        if not os.path.exists(bibpath_tmp):
+        if has_bib:
+            # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+            bibtex = file_to_bytes(ck_to_bib(ck_bib_dir, citation_key))
+        else:
             bibent = bibent_new(citation_key, "misc")
             bibent['author'] = ''
             bibent['year'] = ''
             bibent['title'] = ''
             initial_bibtex = bibent_to_bibtex(bibent)
             bibtex, _ = prompt_for_bibtex(ctx, initial_bibtex)
-        else:
-            # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
-            bibtex = file_to_bytes(bibpath_tmp)
     else:
         # Sets up a HTTP URL opener object, with a random UserAgent to prevent various
         # websites from borking.
@@ -423,12 +432,15 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
 
         # Download PDF (and potentially .bib file too, if the URL is handled)
         try:
-            is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, True, True)
+            is_handled, bibtex, pdf_data = handle_url(url, handlers, opener, user_agent, verbosity, not has_bib, True)
         except urllib.error.HTTPError as err:
             print_http_error(err)
             sys.exit(1)
 
-        if is_handled and url_needs_manual_bib(url):
+        if is_handled and has_bib:
+            # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+            bibtex = file_to_bytes(ck_to_bib(ck_bib_dir, citation_key))
+        elif is_handled and url_needs_manual_bib(url):
             # e.g., a PDF committed to a GitHub repo: the website has no BibTeX to
             # download, so the handler only gives us a pre-filled entry to complete.
             bibtex = prompt_to_complete_bibtex(ctx, bibtex, citation_key)
@@ -450,14 +462,13 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
                 sys.exit(1)
 
             # If there's no .bib file for the user's citation key, let them edit one manually.
-            bibpath_tmp = ck_to_bib(ck_bib_dir, citation_key)
-            if not os.path.exists(bibpath_tmp):
+            if has_bib:
+                # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
+                bibtex = file_to_bytes(ck_to_bib(ck_bib_dir, citation_key))
+            else:
                 bibent = bibent_from_url(citation_key, url)
                 initial_bibtex = bibent_to_bibtex(bibent)
                 bibtex, _ = prompt_for_bibtex(ctx, initial_bibtex)
-            else:
-                # WARNING: Code below expects bibtex to be bytes that it can call .decode() on
-                bibtex = file_to_bytes(bibpath_tmp)
 
     #
     # Invariant: We have the PDF data in pdf_data and the .bib data in bibtex.
@@ -513,7 +524,7 @@ def ck_add_cmd(ctx, url, citation_key, no_tag_prompt, tag):
         click.secho(backup_pdf, fg="green")
         is_update = True
 
-    elif is_handled and os.path.exists(destbibfile):
+    elif is_handled and not has_bib and os.path.exists(destbibfile):
         # For handled URLs, if we have a .bib file but no PDF, then something went wrong,
         # so we err on the side of displaying an error to the user.
         # For non-handled URLs, a .bib file might be there from a previous 'ck bib' or 'ck open' command.

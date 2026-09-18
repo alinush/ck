@@ -171,8 +171,10 @@ def handle_url(url, handlers, opener, user_agent, verbosity, bib_downl, pdf_down
             parsed_url = urlparse(url)
 
         # For all domains, we typically pre-parse the page at 'url' and pass in the 
-        # parser object to the URL handler below
-        if domain not in no_index_html:
+        # parser object to the URL handler below. (Except when the URL points straight
+        # at a PDF, as USENIX's legacy URLs do: there is no HTML page to parse and
+        # downloading it here would fetch the PDF twice.)
+        if domain not in no_index_html and not usenix_is_direct_pdf_url(parsed_url):
             index_html = get_url(opener, url, verbosity, user_agent)
             soup = BeautifulSoup(index_html, parser)
 
@@ -358,6 +360,14 @@ def usenix_extract_bibtex(soup):
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def usenix_is_direct_pdf_url(parsed_url):
+    """USENIX's legacy site (pre-2013 conferences) has no per-paper landing page: its
+       program links point straight at the paper PDF (e.g.,
+       https://www.usenix.org/legacy/event/osdi08/tech/full_papers/cadar/cadar.pdf),
+       so there is neither HTML to scrape nor BibTeX to be found."""
+    return parsed_url.netloc == "www.usenix.org" and parsed_url.path.endswith(".pdf")
+
+
 def usenix_extract_pdf_url(soup, url_prefix):
     # Prefer the final/camera-ready paper PDF; fall back to the prepublication one.
     elem = soup.select_one(".field-name-field-final-paper-pdf a[href]")
@@ -385,6 +395,26 @@ def usenix_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_
     pdf_data = None
     bibtex = None
 
+    # A legacy URL points straight at the PDF, so there's nothing to scrape: we download
+    # it as-is and, if a .bib is needed, return a pre-filled entry for the user to
+    # complete (see url_needs_manual_bib above).
+    if usenix_is_direct_pdf_url(parsed_url):
+        pdfurl = urlunparse(parsed_url)
+
+        if pdf_downl:
+            if verbosity > 0:
+                print("USENIX (legacy) paper PDF URL:", pdfurl)
+            pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+
+        if bib_downl:
+            # The PDF's file name is a decent starting point for the citation key, since
+            # the legacy page gives us no metadata to derive a better one from.
+            stem = os.path.splitext(os.path.basename(parsed_url.path))[0]
+            citation_key = ''.join(c for c in stem.lower() if c.isalnum()) or "usenix"
+            bibtex = bibent_to_bibtex(bibent_from_url(citation_key, pdfurl)).encode('utf-8')
+
+        return bibtex, pdf_data
+
     if bib_downl:
         bibtex = usenix_extract_bibtex(soup)
         if bibtex is None:
@@ -411,7 +441,8 @@ def usenix_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_
 # with it. Their handlers return a pre-filled BibTeX entry, which 'ck add' and
 # 'ck addbib' must then ask the user to complete in their text editor.
 def url_needs_manual_bib(url):
-    return urlparse(url).netloc in {"github.com"}
+    parsed_url = urlparse(url)
+    return parsed_url.netloc in {"github.com"} or usenix_is_direct_pdf_url(parsed_url)
 
 
 def github_parse_file_url(parsed_url):
