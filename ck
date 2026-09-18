@@ -1,4 +1,18 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "appdirs",
+#     "beautifulsoup4",
+#     "bibtexparser<2",
+#     "click",
+#     "fake-useragent",
+#     "gnureadline; sys_platform == 'darwin'",
+#     "lxml",
+#     "pdfkit",
+#     "pyperclip",
+# ]
+# ///
 
 import glob
 import shutil

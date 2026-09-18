@@ -14,47 +14,30 @@ Features:
 Setup
 -----
 
-### 1. Add a `ck` function to your shell config
+### 1. Install uv
 
-Add the following to your `~/.bashrc` or `~/.bash_aliases`:
+The `ck` script declares its own dependencies ([PEP 723](https://peps.python.org/pep-0723/) inline metadata) and runs itself through [uv](https://docs.astral.sh/uv/), so there is no virtual environment or `pip install` step:
 
-```bash
-# Helper function to run ck with venv
-function ck() {
-    local ck_dir="$HOME/repos/ck"  # adjust path as needed
-    local venv_dir="$ck_dir/venv"
-    
-    # Create venv if it doesn't exist
-    if [ ! -d "$venv_dir" ]; then
-        echo "Creating virtual environment..."
-        python3 -m venv "$venv_dir" || return 1
-    fi
-    
-    # Activate venv and install deps if needed
-    source "$venv_dir/bin/activate"
-    if ! python3 -c "import click" 2>/dev/null; then
-        echo "Installing dependencies..."
-        pip install -r "$ck_dir/requirements.txt" || return 1
-    fi
-    
-    # Run ck with all arguments
-    "$ck_dir/ck" "$@"
-    
-    deactivate
-}
-```
+    brew install uv                                  # macOS
+    curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/other
 
-Then reload your shell config:
+### 2. Put `ck` on your `PATH`
 
-    source ~/.bashrc  # or ~/.bash_aliases
+Symlink the script into a directory on your `PATH` (adjust the repo path as needed):
 
-The first time you run `ck`, it will automatically create a virtual environment and install all dependencies.
+    ln -s "$HOME/repos/ck/ck" ~/.local/bin/ck
 
-### 2. Configure ck
+or add an alias to your `~/.bashrc` or `~/.bash_aliases`:
+
+    alias ck="$HOME/repos/ck/ck"
+
+The first time you run `ck`, uv will download the dependencies into its cache; after that, it starts instantly. (Any other PEP 723-aware runner works too, e.g., `pipx run ./ck`.)
+
+### 3. Configure ck
 
 Fill in `ck.config` and put it in your [user_config_dir folder](https://pypi.org/project/appdirs/).
 
-### 3. Optional dependencies
+### 4. Optional dependencies
 
 For auto tag-suggesting, you can install pdfgrep:
 
@@ -74,16 +57,15 @@ Testing
 
 Run all tests (unit + integration):
 
-    source venv/bin/activate
-    python -m pytest -v
+    uv run --with-requirements requirements.txt python -m pytest -v
 
 Skip slow network tests (URL handlers that hit real websites):
 
-    python -m pytest -m "not integration" -v
+    uv run --with-requirements requirements.txt python -m pytest -m "not integration" -v
 
 Run only URL handler integration tests:
 
-    python -m pytest tests/test_urlhandlers.py -v
+    uv run --with-requirements requirements.txt python -m pytest tests/test_urlhandlers.py -v
 
 How to use
 ----------
