@@ -98,36 +98,12 @@ _citation_key_ck_completion() {
             if [ "$prev" == "-t" ] || [ "$prev" == "--tag" ]; then
                 _ck_complete_tags "$cur" "$TagDir"
             else
-                # Complete with files/directories for local PDF ('add') and .bib ('addbib') path support
+                # Complete with files/directories for local PDF ('add') and .bib ('addbib') path support.
+                # 'complete -o filenames' (see the bottom of this file) makes readline treat these as
+                # paths: it appends / to directories (instead of a space), escapes spaces and other
+                # special characters, and displays only the basenames. Don't do any of that by hand.
                 local IFS=$'\n'
                 COMPREPLY=($(compgen -f -- "${cur}"))
-                # Expand ~ for file-type checks (bash doesn't expand ~ in variables)
-                local i expanded
-                for i in "${!COMPREPLY[@]}"; do
-                    expanded="${COMPREPLY[$i]/#\~/$HOME}"
-                    if [ -d "$expanded" ]; then
-                        COMPREPLY[$i]="${COMPREPLY[$i]}/"
-                    fi
-                done
-                # If the only match is a directory, include its children so bash
-                # doesn't append a space and lets the user keep tabbing deeper
-                if [ ${#COMPREPLY[@]} -eq 1 ] && [[ "${COMPREPLY[0]}" == */ ]]; then
-                    local match="${COMPREPLY[0]}"
-                    local expanded_match="${match/#\~/$HOME}"
-                    for f in "$expanded_match"*; do
-                        [ -e "$f" ] || continue
-                        # Convert expanded $HOME back to ~ if the original used ~
-                        local display="$f"
-                        if [[ "$match" == "~/"* ]]; then
-                            display="~/${f#$HOME/}"
-                        fi
-                        if [ -d "$f" ]; then
-                            COMPREPLY+=("${display}/")
-                        else
-                            COMPREPLY+=("${display}")
-                        fi
-                    done
-                fi
             fi
             ;;
             tag)
@@ -204,4 +180,7 @@ _citation_key_ck_completion() {
     fi
 }
 
-complete -F _citation_key_ck_completion ck
+# -o filenames: treat completions as pathnames, so readline appends / (not a space) after a
+# directory, escapes special characters, and lists basenames only. Without it, tabbing on a
+# directory whose contents we can't enumerate (empty or unreadable) wrongly ends the word.
+complete -o filenames -F _citation_key_ck_completion ck
