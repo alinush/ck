@@ -47,10 +47,20 @@ def new_bibtex_parser():
     # NOTE(Alin): common_strings=True only defines the 3-letter month abbreviations (jan, feb, ...) as
     # BibTeX string macros. Some sites (e.g., Crossref's doi.org BibTeX for ACM/IEEE DOIs) instead emit
     # unquoted full month names, like 'month=July', which then fail to parse with an UndefinedString error.
+    # Also handle 4-letter abbreviations (both capitalized and lowercase) like 'Sept'/'sept' that some
+    # publishers use.
     parser.bib_database.strings.update({
-        'january': 'January', 'february': 'February', 'march': 'March', 'april': 'April',
+        'january': 'January', 'february': 'February', 'march': 'March', 'april': 'April', 'may': 'May',
         'june': 'June', 'july': 'July', 'august': 'August', 'september': 'September',
         'october': 'October', 'november': 'November', 'december': 'December',
+        # Capitalized 4-letter abbreviations
+        'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April', 'May': 'May',
+        'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sept': 'September',
+        'Oct': 'October', 'Nov': 'November', 'Dec': 'December',
+        # Lowercase 4-letter abbreviations (bibtexparser may normalize to lowercase)
+        'jan': 'January', 'feb': 'February', 'mar': 'March', 'apr': 'April',
+        'jun': 'June', 'jul': 'July', 'aug': 'August', 'sept': 'September',
+        'oct': 'October', 'nov': 'November', 'dec': 'December',
     })
 
     # TODO(Alin): For now, this serves no purpose, but this is where we might want to canonicalize the BibTeX
