@@ -5,8 +5,6 @@ import shutil
 import subprocess
 from urllib.request import Request
 
-import pdfkit
-
 from bibtexparser.bwriter import BibTexWriter
 
 from citationkeys.bib import *

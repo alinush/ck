@@ -5,7 +5,6 @@ appdirs
 fake-useragent
 bibtexparser
 lxml
-pdfkit
 weasyprint
 gnureadline; sys_platform == 'darwin'  # Fix tab completion on macOS
 pytest

@@ -23,7 +23,9 @@ import datetime
 import json
 import os
 import pyperclip
+import shutil
 import smtplib
+import subprocess
 import sys
 import tempfile
 import time
@@ -118,6 +120,50 @@ def download_pdf(opener, user_agent, pdfurl, verbosity):
         pdf_data = get_url(opener, pdfurl, verbosity, user_agent, ["application/pdf", "application/octet-stream"])
         return pdf_data
     return None
+
+
+def download_ps_as_pdf(opener, user_agent, psurl, verbosity):
+    ps_data = get_url(opener, psurl, verbosity, user_agent, ["application/postscript", "application/octet-stream"])
+    return ps_to_pdf(ps_data, verbosity)
+
+
+# Some older papers (e.g., IACR ePrint papers from the early 2000s) were only ever uploaded as
+# PostScript, but the rest of ck (and the user's PDF reader) expects a PDF, so we convert.
+def ps_to_pdf(ps_data, verbosity):
+    if shutil.which("ps2pdf") is None:
+        print_error("This paper is only available as PostScript, but 'ps2pdf' is not installed.")
+        print_warning("Please install Ghostscript ('brew install ghostscript' or 'apt install ghostscript') and try again.")
+        sys.exit(1)
+
+    if verbosity > 0:
+        print("Converting PostScript to PDF via ps2pdf...")
+
+    # NOTE: ps2pdf can read its input from stdin, but always wants a real file to write its output
+    # to, so we just hand it a temporary directory for both.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pspath = os.path.join(tmpdir, "paper.ps")
+        pdfpath = os.path.join(tmpdir, "paper.pdf")
+
+        with open(pspath, 'wb') as f:
+            f.write(ps_data)
+
+        completed = subprocess.run(
+            ["ps2pdf", pspath, pdfpath],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+
+        if completed.returncode != 0 or not os.path.exists(pdfpath):
+            print_error("'ps2pdf' failed to convert the PostScript file (exit code " + str(completed.returncode) + "):")
+            print(completed.stderr.decode('utf-8', 'replace').strip())
+            sys.exit(1)
+
+        pdf_data = file_to_bytes(pdfpath)
+
+    if verbosity > 0:
+        print(" * Done.")
+
+    return pdf_data
 
 
 def download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity):
@@ -547,6 +593,24 @@ def github_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_
 #
 #    return download_pdf_andor_bib(opener, user_agent, pdfurl, biburl, verbosity)
 
+# Returns the URL of the paper itself, together with its extension. Most ePrint papers are PDFs,
+# but papers from the early days of the archive were often only ever uploaded as PostScript, so
+# guessing a .pdf URL would just 404. The landing page lists the formats that actually exist under
+# "Available format(s)", so we pick from those, preferring a PDF when there is one.
+def iacreprint_paper_url(soup, parsed_url):
+    url_prefix = parsed_url.scheme + '://' + parsed_url.netloc
+    path = parsed_url.path.rstrip('/')
+
+    if soup is not None:
+        for ext in [".pdf", ".ps"]:
+            if soup.find("a", href=path + ext) is not None:
+                return url_prefix + path + ext, ext
+
+        print_warning("Could not find a PDF nor a PostScript link on the ePrint page; guessing the .pdf URL")
+
+    return url_prefix + path + ".pdf", ".pdf"
+
+
 def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, bib_downl, pdf_downl):
     # let's accept links in both formats
     #  - https://eprint.iacr.org/2015/525.pdf
@@ -558,8 +622,13 @@ def iacreprint_handler(opener, soup, parsed_url, parser, user_agent, verbosity, 
     bibtex = None
 
     if pdf_downl:
-        pdfurl = urlunparse(parsed_url) + ".pdf"
-        pdf_data = download_pdf(opener, user_agent, pdfurl, verbosity)
+        paperurl, ext = iacreprint_paper_url(soup, parsed_url)
+
+        if ext == ".ps":
+            print_warning("This paper is only available as PostScript; converting it to a PDF...")
+            pdf_data = download_ps_as_pdf(opener, user_agent, paperurl, verbosity)
+        else:
+            pdf_data = download_pdf(opener, user_agent, paperurl, verbosity)
 
     if bib_downl:
         elem = soup.find("pre", {"id": "bibtex"})

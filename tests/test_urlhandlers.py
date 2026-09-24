@@ -8,6 +8,7 @@ Skip with: pytest -m "not integration"
 """
 
 import http.cookiejar
+import shutil
 import urllib.parse
 import urllib.request
 
@@ -132,6 +133,22 @@ class TestIACR:
     def test_download_pdf(self, opener, user_agent):
         is_handled, _, pdf_data = handle_url(
             "https://eprint.iacr.org/2018/721",
+            HANDLERS, opener, user_agent, 0,
+            bib_downl=False, pdf_downl=True,
+        )
+        assert is_handled is True
+        assert pdf_data is not None
+        assert pdf_data[:5] == b"%PDF-"
+
+    def test_download_postscript_only_paper_as_pdf(self, opener, user_agent):
+        """Old papers are often only on the archive as PostScript; we convert them to a PDF."""
+        # NOTE: Deliberately a failure, not a skip: 'ps2pdf' is a dependency (see install-deps.sh),
+        # so if it is missing we want to hear about it rather than quietly lose the coverage.
+        assert shutil.which("ps2pdf") is not None, \
+            "Ghostscript's 'ps2pdf' is not installed; run ./install-deps.sh"
+
+        is_handled, _, pdf_data = handle_url(
+            "https://eprint.iacr.org/2002/047",
             HANDLERS, opener, user_agent, 0,
             bib_downl=False, pdf_downl=True,
         )
